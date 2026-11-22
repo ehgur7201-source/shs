@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="AED Care - 통합 자동심장충격기 관리·안내 플랫폼" />
+<title>AED Care · 자동심장충격기 관리·안내 플랫폼</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23e3342f'/%3E%3Cpath d='M32 49S12 38 12 24c0-12 15-15 20-5 5-10 20-7 20 5 0 14-20 25-20 25z' fill='white'/%3E%3C/svg%3E">
+
+<!-- Leaflet 1.9.4를 로컬 제공해 CDN 차단 환경에서도 지도를 실행합니다. -->
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<script src="vendor/leaflet/leaflet.js"></script>
+
+<style>
+:root{
+  --bg:#f3f5fa; --surface:#ffffff; --surface-2:#f7f9fd; --line:#e4e9f2; --line-soft:#eef2f8;
+  --text:#18212f; --text-2:#48566b; --muted:#7a879e; --faint:#9aa6bb;
+  --brand:#e3342f; --brand-2:#c81e1a; --accent:#2f6bff; --accent-2:#1f5be0;
+  --ok:#14a86a; --ok-bg:rgba(20,168,106,.10); --ok-line:rgba(20,168,106,.28);
+  --warn:#d98a00; --warn-bg:rgba(217,138,0,.10); --warn-line:rgba(217,138,0,.30);
+  --danger:#e23b53; --danger-bg:rgba(226,59,83,.10); --danger-line:rgba(226,59,83,.30);
+  --r-sm:9px; --r:13px; --r-lg:18px; --r-xl:24px;
+  --shadow:0 18px 44px rgba(24,33,47,.14); --shadow-sm:0 4px 16px rgba(24,33,47,.08);
+  --ease:.2s cubic-bezier(.4,0,.2,1); --topbar:60px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"Pretendard","Malgun Gothic",system-ui,-apple-system,sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.5; min-height:100vh; -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+a{color:inherit;text-decoration:none}
+img{max-width:100%}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#cdd6e4;border-radius:8px}
+.hidden{display:none!important}
+.mono{font-family:"JetBrains Mono",Consolas,monospace}
+.muted{color:var(--muted)}
+
+/* ---------- primitives ---------- */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;letter-spacing:.02em;
+  padding:4px 10px;border-radius:100px;border:1px solid transparent;white-space:nowrap}
+.badge.ok{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+.badge.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+.badge.danger{color:var(--danger);background:var(--danger-bg);border-color:var(--danger-line)}
+.badge.info{color:var(--accent);background:rgba(47,107,255,.10);border-color:rgba(47,107,255,.26)}
+.badge.neutral{color:var(--muted);background:var(--surface-2);border-color:var(--line)}
+.badge.stopped{color:var(--muted);background:var(--surface-2);border-color:var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.danger{background:var(--danger)}
+
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--text-2);border-radius:10px;
+  padding:9px 14px;font-size:13px;font-weight:600;transition:var(--ease);display:inline-flex;align-items:center;gap:7px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.solid{background:linear-gradient(120deg,var(--brand-2),var(--brand));color:#fff;border-color:transparent}
+.btn.solid:hover{filter:brightness(1.05);color:#fff}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.block{width:100%;justify-content:center}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.card.pad{padding:18px}
+.grid{display:grid;gap:14px}
+
+/* ---------- top bar ---------- */
+.topbar{height:var(--topbar);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:0 20px;
+  background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em}
+.brand-mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-size:18px;
+  background:linear-gradient(135deg,var(--brand-2),var(--brand));box-shadow:0 6px 18px rgba(226,59,83,.35)}
+.brand b{font-size:16px;line-height:1.05;display:block}
+.brand small{font-size:9px;color:var(--muted);letter-spacing:.14em;display:block}
+.tabs{display:flex;gap:4px;margin-left:10px;overflow-x:auto;scrollbar-width:thin;white-space:nowrap}
+.tab{padding:9px 14px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text-2);transition:var(--ease);display:flex;align-items:center;gap:7px}
+.tab:hover{background:var(--surface-2)}
+.tab.active{color:var(--brand);background:rgba(226,59,83,.08);font-weight:700}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.mode-chip{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:100px;padding:6px 12px;font-size:12px;font-weight:600}
+.mode-switch{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:100px;padding:3px}
+.ms-btn{padding:7px 14px;border-radius:100px;font-size:12.5px;font-weight:700;color:var(--muted);transition:var(--ease)}
+.ms-btn:hover{color:var(--text)}
+.ms-btn.active{background:var(--surface);color:var(--brand);box-shadow:var(--shadow-sm)}
+
+.wrap{max-width:1500px;margin:0 auto;padding:22px 20px 60px;width:100%}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.page-head h1{font-size:24px;letter-spacing:-.035em}
+.page-head p{color:var(--muted);font-size:13px;margin-top:4px}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- kpi ---------- */
+.kpi-grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.kpi{padding:16px;position:relative;overflow:hidden}
+.kpi .k-top{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:12px;font-weight:600}
+.kpi .k-ico{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:15px}
+.kpi .k-val{font-size:30px;font-weight:800;letter-spacing:-.04em;margin-top:10px}
+.kpi .k-val small{font-size:13px;color:var(--muted);font-weight:600}
+.kpi .k-foot{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* ---------- map layout ---------- */
+.map-layout{display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:stretch;height:calc(100vh - var(--topbar) - 120px);min-height:520px}
+.map-stage{position:relative;min-width:0;min-height:520px;border-radius:var(--r-lg);overflow:hidden;background:#e9eef5}
+#map{width:100%;height:100%;min-height:520px;border-radius:var(--r-lg);border:1px solid var(--line);z-index:1;background:
+  linear-gradient(rgba(72,86,107,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(72,86,107,.08) 1px,transparent 1px),#eef3f8;background-size:48px 48px}
+.map-status-notice{position:absolute;left:12px;right:12px;bottom:12px;z-index:500;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.94);border:1px solid var(--line);box-shadow:var(--shadow-sm);font-size:11px;color:var(--text-2);pointer-events:none}
+#dbItems{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+.db-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px}.db-head span{font-size:11px;font-weight:700;color:#0f8b8d;background:rgba(15,139,141,.1);border-radius:999px;padding:2px 8px}
+.db-note{font-size:12px;color:var(--muted);line-height:1.5;padding:6px 2px}.db-item{border-left:3px solid #0f8b8d}
+.db-cluster{border-radius:50%;background:rgba(15,139,141,.88);color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;border:3px solid rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(24,33,47,.28);cursor:pointer;white-space:nowrap}
+.db-cluster:hover{background:#0b6f71}
+.db-sido{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.db-sido-btn{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:12px;color:var(--text);text-align:left}
+.db-sido-btn:hover{border-color:#0f8b8d;background:rgba(15,139,141,.06)}.db-sido-btn span{color:#0f8b8d;font-weight:700;white-space:nowrap}
+.map-status-notice.ok{border-color:var(--ok-line);color:var(--ok)}.map-status-notice.warn{border-color:var(--warn-line);color:var(--warn)}.map-status-notice.danger{border-color:var(--danger-line);color:var(--danger)}
+.static-map{position:relative;width:100%;height:100%;min-height:520px;overflow:hidden;background:radial-gradient(circle at 70% 18%,rgba(47,107,255,.12),transparent 30%),linear-gradient(rgba(72,86,107,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(72,86,107,.10) 1px,transparent 1px),#eaf0f6;background-size:auto,52px 52px,52px 52px,auto}
+.static-map:before{content:"대한민국 좌표 기반 오프라인 지도";position:absolute;left:18px;top:16px;color:var(--muted);font-size:12px;font-weight:700}
+.static-map-marker{position:absolute;width:20px;height:20px;border-radius:50% 50% 50% 0;transform:translate(-50%,-100%) rotate(-45deg);border:2px solid #fff;box-shadow:0 3px 10px rgba(24,33,47,.3);cursor:pointer}
+.static-map-marker span{display:block;transform:rotate(45deg);color:#fff;text-align:center;font-size:10px;line-height:16px}.static-map-marker.active{outline:4px solid rgba(47,107,255,.28)}
+.static-map-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);padding:30px}.static-map-empty b{display:block;color:var(--text);font-size:15px;margin-bottom:5px}
+.aed-list{overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:10px}
+.search-row{display:flex;gap:8px;margin-bottom:4px}
+.search-row input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);outline:none}
+.search-row input:focus{border-color:var(--accent)}
+.aed-item{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);cursor:pointer;transition:var(--ease)}
+.aed-item:hover{border-color:#c9d4e6;background:var(--surface-2)}
+.aed-item.active{border-color:var(--brand);box-shadow:0 0 0 2px rgba(226,59,83,.12)}
+.aed-item .ai-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.aed-item strong{font-size:14px}
+.aed-item .addr{font-size:12px;color:var(--muted);margin-top:4px}
+.aed-item .meta{display:flex;gap:10px;font-size:11px;color:var(--faint);margin-top:7px;flex-wrap:wrap}
+.leaflet-popup-content{margin:12px 14px;font-size:13px}
+.leaflet-popup-content b{font-size:14px}
+
+/* ---------- table ---------- */
+.table-wrap{overflow-x:auto}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th{text-align:left;color:#6d7c98;padding:11px;border-bottom:1px solid var(--line);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;white-space:nowrap}
+.table td{padding:12px 11px;border-bottom:1px solid var(--line-soft);color:var(--text-2);vertical-align:middle}
+.table tbody tr{transition:var(--ease)}
+.table tbody tr:hover{background:var(--surface-2)}
+.rank{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;font-size:12px;font-weight:800;color:#fff;background:var(--muted)}
+.rank.danger{background:var(--danger)} .rank.warn{background:var(--warn)} .rank.ok{background:var(--ok)}
+
+/* ---------- form ---------- */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:6px}
+.control{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:11px 12px;outline:none;transition:var(--ease)}
+.control:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,107,255,.12)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.form-grid .wide{grid-column:1/-1}
+
+/* ---------- learn (사용법 학습) ---------- */
+.learn-stage{max-width:620px;margin:0 auto}
+.learn-progress{display:flex;gap:6px;margin-bottom:18px}
+.learn-progress .seg{flex:1;height:6px;border-radius:6px;background:var(--line)}
+.learn-progress .seg.on{background:var(--brand)}
+.step-card{text-align:center;padding:32px 24px}
+.step-ico{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;margin:0 auto 18px;font-size:42px;
+  background:rgba(226,59,83,.08);color:var(--brand)}
+.step-card .n{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--brand);text-transform:uppercase}
+.step-card h2{font-size:24px;letter-spacing:-.03em;margin:8px 0 10px}
+.step-card p{font-size:15px;color:var(--text-2);line-height:1.65}
+.step-nav{display:flex;justify-content:space-between;gap:10px;margin-top:22px}
+.quiz-q{border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px;background:var(--surface)}
+.quiz-q h3{font-size:16px;margin-bottom:12px}
+.quiz-opt{display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:8px;transition:var(--ease);background:var(--surface)}
+.quiz-opt:hover{border-color:var(--accent)}
+.quiz-opt.correct{border-color:var(--ok);background:var(--ok-bg);color:var(--ok);font-weight:700}
+.quiz-opt.wrong{border-color:var(--danger);background:var(--danger-bg);color:var(--danger);font-weight:700}
+.quiz-opt.disabled{pointer-events:none;opacity:.75}
+.quiz-explain{margin-top:10px;padding:11px 13px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;line-height:1.6;color:var(--text-2)}
+
+/* 점검 기록 — 다음 점검일 실시간 자동 계산 미리보기 */
+.next-preview{border:1px solid var(--accent);border-radius:12px;padding:13px;margin:4px 0 14px;
+  background:linear-gradient(160deg,rgba(47,107,255,.07),rgba(47,107,255,.02))}
+.next-preview .np-head{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--accent);margin-bottom:10px}
+.next-preview .np-grid{display:grid;grid-template-columns:1fr auto 1.2fr;gap:8px;align-items:center}
+.next-preview .np-cell{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.next-preview .np-cell small{display:block;font-size:10px;color:var(--muted);margin-bottom:3px}
+.next-preview .np-cell b{font-size:15px;letter-spacing:-.02em}
+.next-preview .np-cell.highlight{border-color:var(--accent);background:rgba(47,107,255,.08);position:relative}
+.next-preview .np-cell.np-arrow{background:transparent;border:0;color:var(--accent);font-weight:800;font-size:12px}
+.next-preview .np-dday{display:inline-block;margin-top:4px;font-size:11px;font-weight:800;color:#fff;background:var(--accent);border-radius:100px;padding:2px 9px}
+.next-preview .np-foot{margin-top:11px;font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+@media(max-width:640px){.next-preview .np-grid{grid-template-columns:1fr;gap:6px}.next-preview .np-cell.np-arrow{padding:2px}}
+
+/* ---------- modal / toast ---------- */
+.overlay{position:fixed;inset:0;background:rgba(24,33,47,.3);z-index:80;opacity:0;pointer-events:none;transition:var(--ease)}
+.overlay.show{opacity:1;pointer-events:auto}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.98);width:min(560px,94vw);z-index:90;
+  background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:22px;
+  opacity:0;pointer-events:none;transition:var(--ease);max-height:90vh;overflow-y:auto}
+.modal.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.modal-head h2{font-size:19px;letter-spacing:-.02em}
+.toast{position:fixed;left:50%;bottom:36px;transform:translate(-50%,20px);z-index:120;background:#18212f;color:#fff;
+  border-radius:11px;padding:12px 18px;font-size:13px;opacity:0;pointer-events:none;transition:var(--ease);box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.empty{padding:34px;text-align:center;border:1px dashed #cdd6e4;border-radius:13px;background:var(--surface-2)}
+.empty .ic{font-size:30px;opacity:.5}
+.empty b{display:block;font-size:14px;margin:8px 0 4px}
+.empty p{font-size:12px;color:var(--muted);max-width:420px;margin:0 auto}
+
+/* ---------- 긴급 버튼 ---------- */
+.btn.emergency{background:linear-gradient(120deg,var(--danger),#ff5d73);color:#fff;border-color:transparent;font-weight:800;
+  animation:epulse 2s infinite}
+.btn.emergency:hover{filter:brightness(1.06);color:#fff}
+@keyframes epulse{0%,100%{box-shadow:0 0 0 0 rgba(226,59,83,.4)}50%{box-shadow:0 0 0 7px rgba(226,59,83,0)}}
+
+/* ---------- 모델 태그 / 필터 칩 ---------- */
+.model-tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;
+  color:var(--mc,#7a879e);background:color-mix(in srgb,var(--mc,#7a879e) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--mc,#7a879e) 30%,transparent);white-space:nowrap}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filter-chip{border:1px solid var(--line);background:var(--surface);border-radius:100px;padding:7px 13px;font-size:12px;font-weight:600;color:var(--text-2);transition:var(--ease)}
+.filter-chip:hover{border-color:var(--mc,var(--accent));color:var(--mc,var(--accent))}
+.filter-chip.on{background:var(--mc,var(--brand));border-color:transparent;color:#fff}
+
+/* ---------- 제품(모델)별 요약 카드 ---------- */
+.model-card{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--surface)}
+.model-card .mc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.model-card .mc-top strong{font-size:13px}
+.model-card .mc-stats{display:flex;gap:10px;font-size:11px;margin-top:10px;font-weight:700}
+.model-card .mc-stats .ok{color:var(--ok)} .model-card .mc-stats .warn{color:var(--warn)} .model-card .mc-stats .danger{color:var(--danger)}
+
+/* ---------- 제품 사용법 그리드 ---------- */
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.product-card{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);overflow:hidden;text-align:left;transition:var(--ease);box-shadow:var(--shadow-sm);display:flex;flex-direction:column}
+.product-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:#c9d4e6}
+.product-card .pc-img{padding:16px;display:grid;place-items:center}
+.product-card .pc-body{padding:14px 16px 18px}
+.product-card .pc-tag{display:inline-block;font-size:10px;font-weight:800;padding:3px 9px;border-radius:100px;margin-bottom:8px}
+.product-card .pc-body strong{display:block;font-size:16px;letter-spacing:-.02em}
+.product-card .pc-body p{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.product-card .pc-more{display:inline-block;font-size:12px;font-weight:700;margin-top:10px}
+.feat-row{display:flex;flex-wrap:wrap;gap:6px}
+.feat{font-size:11px;font-weight:600;color:var(--text-2);background:var(--surface-2);border:1px solid var(--line);border-radius:100px;padding:5px 10px}
+.prod-steps{list-style:none;counter-reset:s;display:grid;gap:9px;margin-top:4px}
+.prod-steps li{counter-increment:s;position:relative;padding:11px 12px 11px 42px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:13px;color:var(--text-2)}
+.prod-steps li:before{content:counter(s);position:absolute;left:11px;top:50%;transform:translateY(-50%);
+  width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800}
+
+/* ---------- 조치 가이드 ---------- */
+.guide-item{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:10px;background:var(--surface)}
+.guide-item.urgent{border-color:var(--danger-line);background:var(--danger-bg)}
+.guide-item .gi-task{display:flex;align-items:center;gap:8px;font-size:14px}
+.guide-item .gi-ico{font-size:14px}
+.gi-lbl{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:10px 0 6px}
+.gi-prep{list-style:none;display:grid;gap:5px;font-size:12.5px;color:var(--text-2)}
+
+/* ---------- 홈 · 필터 · 상세 · 복구 ---------- */
+.home-hero{padding:30px;background:linear-gradient(135deg,#fff 30%,rgba(226,59,83,.08));border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);display:grid;grid-template-columns:1.35fr .65fr;gap:24px;align-items:center}
+.home-hero h1{font-size:32px;line-height:1.25;letter-spacing:-.045em}.home-hero p{color:var(--text-2);margin-top:10px;max-width:680px}
+.home-emergency{background:linear-gradient(145deg,var(--brand-2),#ff5268);border-radius:20px;padding:22px;color:#fff;text-align:center;box-shadow:0 16px 34px rgba(226,59,83,.25)}
+.home-emergency .btn{margin-top:12px;background:#fff;color:var(--danger);border:0;justify-content:center;font-size:17px;font-weight:900;width:100%;padding:14px}
+.cta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.cta-card{padding:18px;text-align:left;transition:var(--ease)}
+.cta-card:hover{transform:translateY(-2px);border-color:var(--accent)}.cta-card b{display:block;margin:8px 0 3px}.cta-card p{font-size:12px;color:var(--muted)}
+.filter-panel{display:grid;grid-template-columns:minmax(210px,2fr) repeat(3,minmax(130px,1fr));gap:8px;margin-bottom:14px}
+.filter-panel.map-filter{grid-template-columns:minmax(180px,1fr) minmax(130px,.55fr);margin:0 0 8px}
+.filter-summary{font-size:12px;color:var(--muted);margin:2px 0 10px}
+.check-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.check-item{display:flex;align-items:flex-start;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface-2);font-size:13px}.check-item input{margin-top:3px;accent-color:var(--brand)}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.detail-cell{border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--surface-2)}.detail-cell small{display:block;color:var(--muted);font-size:10px;margin-bottom:3px}.detail-cell b{font-size:13px}
+.timeline{border-left:2px solid var(--line);margin-left:7px;padding-left:17px}.tl-item{position:relative;padding:0 0 13px}.tl-item:before{content:"";position:absolute;left:-23px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid #fff}.tl-item time{font-size:10px;color:var(--muted)}.tl-item h5{font-size:13px;margin:2px 0}.tl-item p{font-size:12px;color:var(--text-2)}
+.top-export{white-space:nowrap}.notice-box{border:1px solid var(--warn-line);background:var(--warn-bg);border-radius:12px;padding:13px;font-size:12.5px;color:var(--text-2)}
+
+@media(max-width:1100px){.cta-grid{grid-template-columns:repeat(2,1fr)}.filter-panel{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){
+  .home-hero{grid-template-columns:1fr}.top-right{gap:6px}
+  .top-export{padding:7px 9px}
+
+  .map-layout{grid-template-columns:1fr;height:auto}
+  .map-stage,#map,.static-map{height:420px;min-height:420px}
+  .aed-list{max-height:320px}
+  .tabs .tab span{display:none}
+}
+@media(max-width:640px){
+  .topbar{flex-wrap:wrap;height:auto;padding:8px 12px;gap:8px}
+  .tabs{order:3;width:100%;overflow-x:auto}
+  .tab{padding:8px 11px}.tab span{display:inline!important}
+  .wrap{padding:16px 12px 48px}
+  .page-head h1{font-size:20px}
+  /* 응급 상황 대비: 핵심 버튼은 손가락에 맞게 크게 */
+  .btn{padding:11px 15px;font-size:14px}
+  .btn.emergency{font-size:16px;padding:14px}
+  .control{padding:13px;font-size:15px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .form-grid,.filter-panel,.filter-panel.map-filter,.detail-grid,.check-grid{grid-template-columns:1fr}
+  .home-hero{padding:20px}.home-hero h1{font-size:25px}.cta-grid{grid-template-columns:1fr 1fr}
+  .top-right{width:100%;justify-content:flex-end;flex-wrap:wrap}.top-export{order:1}.mode-switch{order:2}
+}
+/* 접근성: 포커스 표시 강화 */
+.btn:focus-visible,.control:focus-visible,.tab:focus-visible,.ms-btn:focus-visible,.filter-chip:focus-visible,.product-card:focus-visible,.cta-card:focus-visible,.aed-item:focus-visible{outline:3px solid rgba(47,107,255,.5);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">♥</span>
+    <span><b>AED Care</b><small>자동심장충격기 관리·안내</small></span>
+  </div>
+  <nav class="tabs" id="tabs" aria-label="주요 메뉴"></nav>
+  <div class="top-right">
+    <button class="btn sm top-export hidden" id="topCsvExport" type="button" title="전체 기기 현황 CSV 내보내기">⬇ CSV 내보내기</button>
+    <div class="mode-switch" id="modeSwitch">
+      <button class="ms-btn active" data-mode="citizen">🙋 시민용</button>
+      <button class="ms-btn" data-mode="admin">🔑 관리자용</button>
+    </div>
+    <button class="mode-chip" id="infoChip" title="데이터 저장 안내"><span class="dot ok"></span>데모 · 로컬 저장 ⓘ</button>
+  </div>
+</header>
+
+<main class="wrap" id="view"></main>
+
+<div class="overlay" id="overlay" aria-hidden="true"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="상세 대화상자"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   AED Care — 단일 HTML MVP
+   구조 메모(2단계 분리 대비):
+   - 모든 데이터 접근은 Store 한 곳에서만. 나중에 localStorage → fetch(백엔드)
+     로 바꾸려면 Store 내부 구현만 교체하면 됨.
+   - UI는 Views[viewId](host) 형태의 렌더 함수로 분리.
+   ============================================================ */
+
+/* ---------- tiny DOM helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const uid=()=>"AED-"+Math.random().toString(36).slice(2,7).toUpperCase();
+const todayStr=()=>new Date().toISOString().slice(0,10);
+function addDays(dateStr,days){const d=new Date(dateStr);d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);}
+function daysBetween(a,b){return Math.round((new Date(b)-new Date(a))/86400000);}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600);}
+function openModal(html){const modal=$("#modal"),overlay=$("#overlay");modal.innerHTML=html;overlay.classList.add("show");overlay.setAttribute("aria-hidden","false");modal.classList.add("show");setTimeout(()=>{const target=modal.querySelector("[autofocus],button,input,select,textarea,a[href]");if(target)target.focus();},30);}
+function closeModal(){const overlay=$("#overlay");overlay.classList.remove("show");overlay.setAttribute("aria-hidden","true");$("#modal").classList.remove("show");}
+window.closeModal=closeModal;
+
+/* ============================================================
+   STORE — 데이터 접근 계층 (교체 지점)
+   AED 기기 + 점검이력을 localStorage에 보관.
+   ============================================================ */
+const LegacyStore={
+  KEY:"aedcare.v1",
+  _db:null,
+  _load(){
+    if(this._db)return this._db;
+    try{const raw=localStorage.getItem(this.KEY);if(raw){this._db=JSON.parse(raw);
+      if(!this._db.events)this._db.events=[];
+      if(!this._db.tasks)this._db.tasks=[];
+      if(!this._db.quiz)this._db.quiz=SEED_QUIZ.slice();
+      return this._db;}}catch(e){}
+    this._db={devices:SEED.slice(),quiz:SEED_QUIZ.slice(),events:[],tasks:[]};
+    this._save();
+    return this._db;
+  },
+  _save(){try{localStorage.setItem(this.KEY,JSON.stringify(this._db));}catch(e){console.warn("save fail",e);}},
+
+  /* ---- 기기 ---- */
+  listDevices(){return this._load().devices.slice();},
+  getDevice(id){return this._load().devices.find(d=>d.id===id)||null;},
+  addDevice(d){
+    const db=this._load();
+    const dev={
+      id:d.id||uid(),name:d.name,address:d.address,
+      model:d.model||"",
+      building:d.building||"",floor:d.floor||"",spot:d.spot||"",  // 건물명/층수/상세위치
+      hours:d.hours||"",access:d.access||"",                      // 운영시간/출입 가능여부
+      source:d.source||"manual",                                  // 데이터 출처: manual | csv | public
+      lat:+d.lat,lng:+d.lng,
+      manager:d.manager||"",phone:d.phone||"",
+      battery_expiry:d.battery_expiry||"",pad_expiry:d.pad_expiry||"",
+      install_date:d.install_date||todayStr(),
+      inspect_cycle_days:+d.inspect_cycle_days||180,
+      inspections:[],
+    };
+    db.devices.push(dev);this._save();return dev;
+  },
+  updateDevice(id,patch){
+    const db=this._load();const d=db.devices.find(x=>x.id===id);if(!d)return null;
+    Object.assign(d,patch);this._save();return d;
+  },
+  removeDevice(id){
+    const db=this._load();db.devices=db.devices.filter(d=>d.id!==id);this._save();
+  },
+
+  /* ---- 점검 ---- */
+  addInspection(deviceId,rec){
+    const db=this._load();const d=db.devices.find(x=>x.id===deviceId);if(!d)return null;
+    const ins={date:rec.date||todayStr(),result:rec.result||"정상",inspector:rec.inspector||"",memo:rec.memo||"",photo:rec.photo||null};
+    d.inspections=d.inspections||[];d.inspections.unshift(ins);this._save();return ins;
+  },
+  lastInspection(d){return (d.inspections&&d.inspections[0])||null;},
+  nextInspectionDate(d){
+    const last=this.lastInspection(d);
+    const base=last?last.date:d.install_date||todayStr();
+    return addDays(base,d.inspect_cycle_days||180);
+  },
+
+  /* ---- AED 사용(작동) 이벤트 로그 ----
+     앱은 119 신고를 대체하지 않는다. 여기 기록은 '사용 사실'과
+     각 처리의 '상태'만 남긴다. 실제 전송이 확인되지 않으면 성공으로 적지 않는다. */
+  addUsageEvent(ev){
+    const db=this._load();
+    const e={id:"EV-"+Date.now().toString(36).toUpperCase(),ts:new Date().toISOString(),
+      deviceId:ev.deviceId||null,deviceName:ev.deviceName||"",address:ev.address||"",
+      lat:(ev.lat!=null?ev.lat:null),lng:(ev.lng!=null?ev.lng:null),
+      // 처리 상태: "called119"(사용자가 119 통화 시도) / "not_integrated"(관리자 알림 미연동)
+      call119:ev.call119||"unknown",          // "attempted" | "unknown"
+      managerNotify:"not_integrated",          // 실제 전송 서비스 미연동 고정
+      recovery:"pending",                      // 사용 후 복구: pending → done (P2-2에서 사용)
+      note:ev.note||""};
+    db.events=db.events||[];db.events.unshift(e);this._save();
+    // 사용된 기기는 '사용 후 점검 필요' 플래그를 세운다 (후속 조치 추적)
+    if(ev.deviceId){const d=db.devices.find(x=>x.id===ev.deviceId);if(d){d.needs_post_use_check=true;this._save();}}
+    return e;
+  },
+  listEvents(){return (this._load().events||[]).slice();},
+  getEvent(id){return (this._load().events||[]).find(e=>e.id===id)||null;},
+  updateEvent(id,patch){const db=this._load();const e=(db.events||[]).find(x=>x.id===id);if(!e)return null;Object.assign(e,patch);this._save();return e;},
+
+  /* ---- 조치 작업(Task) — 위험 상태에 대한 후속 작업 관리 (P1 4-1) ---- */
+  listTasks(){return (this._load().tasks||[]).slice();},
+  getTask(id){return (this._load().tasks||[]).find(t=>t.id===id)||null;},
+  addTask(t){
+    const db=this._load();db.tasks=db.tasks||[];
+    const task={id:"T-"+Date.now().toString(36).toUpperCase()+Math.floor(Math.random()*90+10),
+      deviceId:t.deviceId||null,title:t.title||"조치",reason:t.reason||"",
+      assignee:t.assignee||"",due:t.due||"",status:t.status||"미처리",
+      work:t.work||"",photo:t.photo||null,
+      created:new Date().toISOString(),updated:new Date().toISOString(),
+      history:[{ts:new Date().toISOString(),action:"생성",detail:t.reason||""}]};
+    db.tasks.unshift(task);this._save();return task;
+  },
+  updateTask(id,patch,actionLabel){
+    const db=this._load();const t=(db.tasks||[]).find(x=>x.id===id);if(!t)return null;
+    Object.assign(t,patch);t.updated=new Date().toISOString();
+    t.history=t.history||[];t.history.unshift({ts:t.updated,action:actionLabel||"수정",detail:patch.status||patch.work||""});
+    this._save();return t;
+  },
+  /* 위험 상태 기기에 대해 미완료 작업이 없으면 자동 생성 */
+  ensureTasksForRisk(){
+    const db=this._load();db.tasks=db.tasks||[];let created=0;
+    db.devices.forEach(d=>{
+      const st=deviceStatus(d);
+      if(st.level==="ok")return;
+      const open=db.tasks.find(t=>t.deviceId===d.id&&t.status!=="완료");
+      if(open)return;
+      db.tasks.unshift({id:"T-"+Date.now().toString(36).toUpperCase()+Math.floor(Math.random()*900+100),
+        deviceId:d.id,title:st.label,reason:st.reasons.join(" / "),
+        assignee:d.manager||"",due:"",status:"미처리",work:"",photo:null,
+        created:new Date().toISOString(),updated:new Date().toISOString(),
+        history:[{ts:new Date().toISOString(),action:"자동 생성",detail:st.reasons.join(" / ")}]});
+      created++;
+    });
+    if(created)this._save();
+    return created;
+  },
+
+  reset(){localStorage.removeItem(this.KEY);this._db=null;this._load();},
+};
+
+/* 버전 스키마 Store. LegacyStore는 v1 구조를 읽는 참고 구현이며 실제 접근은 아래 Store로 통일한다. */
+const SCHEMA_VERSION=4;
+const LEGACY_DEMO_DEVICE_IDS=new Set(["AED-001","AED-002","AED-003","AED-004","AED-005"]);
+const DEFAULT_SETTINGS={org:"AED Care 운영기관",alertDays:30,monthlyTarget:100};
+function cloneData(value){return value===undefined?undefined:JSON.parse(JSON.stringify(value));}
+function normalizeSearch(value){return String(value==null?"":value).normalize("NFKC").toLocaleLowerCase("ko-KR").replace(/\s+/g," ").trim();}
+function deviceSearchText(d){return normalizeSearch([d.name,d.address,d.building,d.floor,d.spot,d.model,productName(d.model),d.manager,d.phone,d.source_maker,d.source_model].join(" "));}
+function matchesSearch(values,query){const q=normalizeSearch(query);return !q||normalizeSearch(Array.isArray(values)?values.join(" "):values).includes(q);}
+function makeTaskId(){return "T-"+Date.now().toString(36).toUpperCase()+Math.floor(Math.random()*9000+1000);}
+const Store={
+  KEY:"aedcare.v1",_db:null,
+  _seed(){return {schemaVersion:SCHEMA_VERSION,virtualDataCleaned:true,settings:cloneData(DEFAULT_SETTINGS),devices:[],quiz:cloneData(SEED_QUIZ),events:[],tasks:[]};},
+  _normalizeDevice(d={}){return {...d,id:String(d.id||uid()),name:String(d.name||""),address:String(d.address||""),model:String(d.model||""),building:String(d.building||""),floor:String(d.floor||""),spot:String(d.spot||""),hours:String(d.hours||""),access:String(d.access||""),source:String(d.source||"manual"),source_maker:String(d.source_maker||""),source_model:String(d.source_model||""),lat:Number(d.lat),lng:Number(d.lng),manager:String(d.manager||""),phone:String(d.phone||""),battery_expiry:String(d.battery_expiry||""),pad_expiry:String(d.pad_expiry||""),install_date:String(d.install_date||todayStr()),inspect_cycle_days:Math.max(1,Number(d.inspect_cycle_days)||180),needs_post_use_check:Boolean(d.needs_post_use_check),inspections:Array.isArray(d.inspections)?d.inspections.map(i=>({...i,date:String(i.date||""),result:String(i.result||"정상"),inspector:String(i.inspector||""),memo:String(i.memo||""),photo:i.photo||null})):[]};},
+  _migrate(raw){
+    if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error("저장 데이터 형식이 올바르지 않습니다.");
+    const db=cloneData(raw);const sourceVersion=Number(db.schemaVersion)||1;db.schemaVersion=SCHEMA_VERSION;
+    db.settings={...DEFAULT_SETTINGS,...(db.settings&&typeof db.settings==="object"?db.settings:{})};
+    db.settings.org=String(db.settings.org||DEFAULT_SETTINGS.org).slice(0,100);
+    db.settings.alertDays=Math.min(365,Math.max(1,Number(db.settings.alertDays)||DEFAULT_SETTINGS.alertDays));
+    db.settings.monthlyTarget=Number.isFinite(Number(db.settings.monthlyTarget))?Math.min(100,Math.max(0,Number(db.settings.monthlyTarget))):DEFAULT_SETTINGS.monthlyTarget;
+    db.devices=(Array.isArray(db.devices)?db.devices:[]).map(d=>this._normalizeDevice(d));
+    db.quiz=Array.isArray(db.quiz)?db.quiz:cloneData(SEED_QUIZ);
+    db.events=(Array.isArray(db.events)?db.events:[]).map(e=>({...e,id:String(e.id||"EV-"+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5)),ts:String(e.ts||new Date().toISOString()),deviceId:e.deviceId||null,deviceName:String(e.deviceName||""),address:String(e.address||""),lat:e.lat==null?null:Number(e.lat),lng:e.lng==null?null:Number(e.lng),call119:e.call119||"unknown",managerNotify:"not_integrated",recovery:e.recovery==="done"?"done":"pending",note:String(e.note||""),recoveredAt:e.recoveredAt||(e.recovery==="done"?(e.ts||null):null),by:String(e.by||e.recoveredBy||""),checks:e.checks&&typeof e.checks==="object"?e.checks:{},memo:String(e.memo||e.recoveryMemo||""),photo:e.photo||e.recoveryPhoto||null,recoveredBy:String(e.by||e.recoveredBy||""),recoveryMemo:String(e.memo||e.recoveryMemo||""),recoveryPhoto:e.photo||e.recoveryPhoto||null}));
+    db.tasks=(Array.isArray(db.tasks)?db.tasks:[]).map(t=>({...t,id:String(t.id||makeTaskId()),deviceId:t.deviceId||null,eventId:t.eventId||null,type:t.type||"risk",title:String(t.title||"조치"),reason:String(t.reason||""),assignee:String(t.assignee||""),due:String(t.due||""),status:String(t.status||"미처리"),work:String(t.work||""),photo:t.photo||null,created:t.created||new Date().toISOString(),updated:t.updated||t.created||new Date().toISOString(),history:Array.isArray(t.history)?t.history:[]}));
+    // v3 최초 실행 시 과거에 제공한 기본 5대와 SafeMap 가상 50건만 제거한다.
+    // 이후 실제로 가져오는 public 데이터는 virtualDataCleaned 플래그로 보호된다.
+    if(sourceVersion<3&&!db.virtualDataCleaned){
+      const virtualIds=new Set(db.devices.filter(d=>LEGACY_DEMO_DEVICE_IDS.has(d.id)||d.source==="public").map(d=>d.id));
+      db.devices=db.devices.filter(d=>!virtualIds.has(d.id));
+      db.events=db.events.filter(e=>!e.deviceId||!virtualIds.has(e.deviceId));
+      db.tasks=db.tasks.filter(t=>!t.deviceId||!virtualIds.has(t.deviceId));
+      db.virtualDataCleaned=true;
+    }
+    // v4: 공공 AED(SafeMap)는 DB에서만 조회한다. 브라우저에 저장된 공공데이터 기기는 항상 제거한다.
+    {
+      const publicIds=new Set(db.devices.filter(d=>d.source==="public").map(d=>d.id));
+      if(publicIds.size){
+        db.devices=db.devices.filter(d=>!publicIds.has(d.id));
+        db.events=db.events.filter(e=>!e.deviceId||!publicIds.has(e.deviceId));
+        db.tasks=db.tasks.filter(t=>!t.deviceId||!publicIds.has(t.deviceId));
+      }
+    }
+    db.events.filter(e=>e.recovery!=="done").forEach(e=>{let task=db.tasks.find(t=>t.eventId===e.id&&t.type==="post_use_recovery");if(!task){task=this._recoveryTask(e);db.tasks.unshift(task);}e.taskId=task.id;});
+    db.devices.forEach(d=>{d.needs_post_use_check=db.events.some(e=>e.deviceId===d.id&&e.recovery!=="done");});return db;
+  },
+  _recoveryTask(e){const ts=e.ts||new Date().toISOString();return {id:makeTaskId(),deviceId:e.deviceId||null,eventId:e.id,type:"post_use_recovery",title:"사용 후 복구",reason:`AED 사용 기록 (${fmtTs(ts)})`,assignee:"",due:"",status:"미처리",work:"",photo:null,created:ts,updated:ts,history:[{ts,action:"사용 기록으로 자동 생성",detail:"패드·배터리·자가점검·재배치 확인 필요"}]};},
+  _load(){if(this._db)return this._db;try{const raw=localStorage.getItem(this.KEY);this._db=this._migrate(raw?JSON.parse(raw):this._seed());try{this._save();}catch(e){console.warn("migration save fail",e);}}catch(e){console.warn("load fail; using deep-cloned seed",e);this._db=this._seed();try{this._save();}catch(saveError){console.warn("seed save fail",saveError);}}return this._db;},
+  _save(){localStorage.setItem(this.KEY,JSON.stringify(this._db));},
+  _commit(mutator){const next=cloneData(this._load());const result=mutator(next);next.schemaVersion=SCHEMA_VERSION;localStorage.setItem(this.KEY,JSON.stringify(next));this._db=next;return cloneData(result);},
+  listDevices(){return cloneData(this._load().devices);},
+  listQuiz(){return cloneData(this._load().quiz);},
+  getDevice(id){return cloneData(this._load().devices.find(d=>d.id===id)||null);},
+  addDevice(d){return this._commit(db=>{const dev=this._normalizeDevice({...d,inspections:Array.isArray(d.inspections)?d.inspections:[]});const ids=new Set(db.devices.map(x=>x.id));while(ids.has(dev.id))dev.id=uid();db.devices.push(dev);return dev;});},
+  addDevices(items){return this._commit(db=>{const ids=new Set(db.devices.map(x=>x.id));const added=[];(items||[]).forEach(item=>{const dev=this._normalizeDevice({...item,inspections:Array.isArray(item.inspections)?item.inspections:[]});while(ids.has(dev.id))dev.id=uid();ids.add(dev.id);db.devices.push(dev);added.push(dev);});return added;});},
+  updateDevice(id,patch){return this._commit(db=>{const i=db.devices.findIndex(x=>x.id===id);if(i<0)return null;db.devices[i]=this._normalizeDevice({...db.devices[i],...patch,id});return db.devices[i];});},
+  removeDevice(id){return this._commit(db=>{const before=db.devices.length;db.devices=db.devices.filter(d=>d.id!==id);return before!==db.devices.length;});},
+  addInspection(deviceId,rec){return this.recordInspection(deviceId,null,rec);},
+  recordInspection(deviceId,cycle,rec){return this._commit(db=>{const d=db.devices.find(x=>x.id===deviceId);if(!d)return null;if(cycle)d.inspect_cycle_days=Math.max(1,Number(cycle)||180);const ins={date:rec.date||todayStr(),result:rec.result||"정상",inspector:rec.inspector||"",memo:rec.memo||"",photo:rec.photo||null};d.inspections=d.inspections||[];d.inspections.push(ins);d.inspections.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));return ins;});},
+  lastInspection(d){const list=d&&Array.isArray(d.inspections)?d.inspections:[];return cloneData(list.slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")))[0]||null);},
+  nextInspectionDate(d){const last=this.lastInspection(d);const base=last?last.date:d.install_date||todayStr();return addDays(base,d.inspect_cycle_days||180);},
+  addUsageEvent(ev){return this._commit(db=>{const now=new Date().toISOString();const usedAt=ev.ts?new Date(ev.ts).toISOString():now;const e={id:"EV-"+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase(),ts:usedAt,deviceId:ev.deviceId||null,deviceName:ev.deviceName||"",address:ev.address||"",lat:ev.lat!=null?Number(ev.lat):null,lng:ev.lng!=null?Number(ev.lng):null,call119:ev.call119||"unknown",managerNotify:"not_integrated",recovery:"pending",note:ev.note||"",recoveredAt:null,by:"",checks:{},memo:"",photo:null,recoveredBy:"",recoveryMemo:"",recoveryPhoto:null};const task=this._recoveryTask(e);e.taskId=task.id;db.events.unshift(e);db.tasks.unshift(task);if(e.deviceId){const d=db.devices.find(x=>x.id===e.deviceId);if(d)d.needs_post_use_check=true;}return e;});},
+  listEvents(){return cloneData(this._load().events);},getEvent(id){return cloneData(this._load().events.find(e=>e.id===id)||null);},
+  updateEvent(id,patch){return this._commit(db=>{const e=db.events.find(x=>x.id===id);if(!e)return null;Object.assign(e,patch);return e;});},
+  completeRecovery(eventId,payload){return this._commit(db=>{const e=db.events.find(x=>x.id===eventId);if(!e)throw new Error("사용 기록을 찾을 수 없습니다.");const now=new Date().toISOString();e.recovery="done";e.recoveredAt=now;e.by=String(payload.by||"");e.checks=cloneData(payload.checks||{});e.memo=String(payload.memo||"");e.photo=payload.photo||null;e.recoveredBy=e.by;e.recoveryMemo=e.memo;e.recoveryPhoto=e.photo;const task=db.tasks.find(t=>t.id===e.taskId||(t.eventId===e.id&&t.type==="post_use_recovery"));if(task){task.status="완료";task.assignee=e.recoveredBy||task.assignee;task.work=e.recoveryMemo||"사용 후 복구 체크리스트 완료";task.photo=e.recoveryPhoto||task.photo;task.updated=now;task.history=task.history||[];task.history.unshift({ts:now,action:"복구 완료",detail:Object.entries(e.checks).filter(([,v])=>v).map(([k])=>k).join(", ")});}db.tasks.filter(t=>t.deviceId===e.deviceId&&t.status!=="완료"&&t.type==="risk"&&/사용 후/.test(`${t.title} ${t.reason}`)).forEach(t=>{t.status="완료";t.updated=now;t.history=t.history||[];t.history.unshift({ts:now,action:"연결된 복구 완료",detail:`사용 기록 ${e.id}`});});if(e.deviceId){const d=db.devices.find(x=>x.id===e.deviceId);if(d)d.needs_post_use_check=db.events.some(x=>x.deviceId===e.deviceId&&x.recovery!=="done");}return e;});},
+  listTasks(){return cloneData(this._load().tasks);},getTask(id){return cloneData(this._load().tasks.find(t=>t.id===id)||null);},
+  addTask(t){return this._commit(db=>{const now=new Date().toISOString();const task={id:makeTaskId(),deviceId:t.deviceId||null,eventId:t.eventId||null,type:t.type||"risk",title:t.title||"조치",reason:t.reason||"",assignee:t.assignee||"",due:t.due||"",status:t.status||"미처리",work:t.work||"",photo:t.photo||null,created:now,updated:now,history:[{ts:now,action:"생성",detail:t.reason||""}]};db.tasks.unshift(task);return task;});},
+  updateTask(id,patch,actionLabel){return this._commit(db=>{const t=db.tasks.find(x=>x.id===id);if(!t)return null;Object.assign(t,patch);t.updated=new Date().toISOString();t.history=t.history||[];t.history.unshift({ts:t.updated,action:actionLabel||"수정",detail:patch.status||patch.work||""});return t;});},
+  ensureTasksForRisk(){return this._commit(db=>{let created=0;db.devices.forEach(d=>{const st=deviceStatus(d);if(st.level==="ok")return;const open=db.tasks.find(t=>t.deviceId===d.id&&t.status!=="완료"&&(st.code==="post_use"||t.type!=="post_use_recovery"));if(open)return;const now=new Date().toISOString();db.tasks.unshift({id:makeTaskId(),deviceId:d.id,eventId:null,type:"risk",title:st.label,reason:st.reasons.join(" / "),assignee:d.manager||"",due:"",status:"미처리",work:"",photo:null,created:now,updated:now,history:[{ts:now,action:"자동 생성",detail:st.reasons.join(" / ")}]});created++;});return created;});},
+  getSettings(){return cloneData(this._load().settings);},
+  updateSettings(settings){return this._commit(db=>{db.settings={...db.settings,...settings};db.settings.org=String(db.settings.org||DEFAULT_SETTINGS.org).slice(0,100);db.settings.alertDays=Math.min(365,Math.max(1,Number(db.settings.alertDays)||30));db.settings.monthlyTarget=Number.isFinite(Number(db.settings.monthlyTarget))?Math.min(100,Math.max(0,Number(db.settings.monthlyTarget))):100;return db.settings;});},
+  exportSnapshot(){return {format:"aedcare-backup",schemaVersion:SCHEMA_VERSION,exportedAt:new Date().toISOString(),data:cloneData(this._load())};},
+  importSnapshot(input){const snapshot=typeof input==="string"?JSON.parse(input):cloneData(input);if(!snapshot||snapshot.format!=="aedcare-backup"||!snapshot.data||typeof snapshot.data!=="object")throw new Error("AED Care 백업 파일 형식이 아닙니다.");const data=snapshot.data;["devices","quiz","events","tasks"].forEach(k=>{if(!Array.isArray(data[k]))throw new Error(`${k} 배열이 없는 백업입니다.`);});const ids=new Set();data.devices.forEach((d,i)=>{const id=String(d&&d.id||"").trim();if(!id)throw new Error(`${i+1}번째 기기 ID가 없습니다.`);if(ids.has(id))throw new Error(`중복 기기 ID: ${id}`);ids.add(id);const lat=Number(d.lat),lng=Number(d.lng);if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat<33||lat>39||lng<124||lng>132)throw new Error(`${id}의 좌표가 대한민국 범위를 벗어났습니다.`);});const migrated=this._migrate(data);localStorage.setItem(this.KEY,JSON.stringify(migrated));this._db=migrated;return {devices:migrated.devices.length,events:migrated.events.length,tasks:migrated.tasks.length};},
+  reset(){const seed=this._seed();localStorage.setItem(this.KEY,JSON.stringify(seed));this._db=seed;return true;},
+};
+function getAlertDays(){const n=Number(Store.getSettings().alertDays);return Number.isFinite(n)&&n>0?n:30;}
+
+/* ============================================================
+   상태 판정 — 유효기간/점검주기/최종 점검결과로 기기 상태 산출
+   반환: {code, label, level:"ok|warn|danger"(하위호환), reasons:[], asOf, basis}
+   8단계 code:
+     normal          정상
+     inspect_due     점검 예정
+     inspect_overdue 점검 기한 초과
+     battery_due     배터리 교체 필요
+     pad_due         패드 교체 필요
+     repair          수리 필요
+     unusable        사용 불가
+     unverified      상태 미확인(점검 기록 없음/오래됨)
+   ============================================================ */
+const STALE_DAYS=400;        // 최종 점검이 이보다 오래되면 '미확인'으로 간주(연 1회+여유)
+/* code → {label, level} 매핑. level은 기존 UI(badge/marker/정렬) 하위호환용 */
+const STATUS_DEF={
+  normal:{label:"정상",level:"ok"},
+  inspect_due:{label:"점검 예정",level:"warn"},
+  inspect_overdue:{label:"점검 기한 초과",level:"danger"},
+  battery_due:{label:"배터리 교체 필요",level:"warn"},
+  pad_due:{label:"패드 교체 필요",level:"warn"},
+  repair:{label:"수리 필요",level:"danger"},
+  unusable:{label:"사용 불가",level:"danger"},
+  unverified:{label:"상태 미확인",level:"warn"},
+  post_use:{label:"사용 후 점검 필요",level:"danger"},
+};
+/* 점검 결과 문자열 → 심각 상태 code (수리필요/사용불가 우선 반영) */
+function resultToCode(result){
+  const v=String(result||"").replace(/\s/g,"");
+  if(v.includes("사용불가"))return "unusable";
+  if(v.includes("수리"))return "repair";
+  return null;
+}
+function deviceStatus(d){
+  const today=todayStr();const reasons=[];
+  const last=Store.lastInspection(d);
+  const SEV=["normal","inspect_due","battery_due","pad_due","unverified","inspect_overdue","repair","unusable","post_use"];
+  let code="normal";
+  const raise=(c,why)=>{if(why&&!reasons.includes(why))reasons.push(why);if(SEV.indexOf(c)>SEV.indexOf(code))code=c;};
+
+  // AED 사용 이후 복구 완료 전에는 다른 조건보다 우선해 현장 점검을 요구한다.
+  if(d.needs_post_use_check)raise("post_use","AED 사용 후 복구·재사용 준비 확인이 완료되지 않음");
+
+  // 최종 점검 결과가 수리필요/사용불가면 즉시 위험 상태로 표시한다.
+  const rc=last?resultToCode(last.result):null;
+  if(rc)raise(rc,`최종 점검 결과: ${last.result} (${last.date})`);
+
+  // 소모품 날짜가 없으면 정상으로 판정하지 않는다.
+  const chk=(label,date,dueCode)=>{
+    if(!date){raise("unverified",`${label} 유효기간 미확인`);return;}
+    const left=daysBetween(today,date);
+    if(left<0)raise(dueCode,`${label} 만료 (${-left}일 경과)`);
+    else if(left<=getAlertDays())raise(dueCode,`${label} 만료 임박 (D-${left})`);
+  };
+  chk("배터리",d.battery_expiry,"battery_due");
+  chk("패드",d.pad_expiry,"pad_due");
+
+  // 기관별 기기 점검주기와 이번 달 점검 기록을 별도로 확인한다.
+  const next=Store.nextInspectionDate(d);const nleft=daysBetween(today,next);
+  if(nleft<0)raise("inspect_overdue",`점검 기한 초과 (${-nleft}일)`);
+  else if(nleft<=getAlertDays())raise("inspect_due",`점검 예정 (D-${nleft})`);
+  const currentMonth=today.slice(0,7);
+  if(!(d.inspections||[]).some(i=>String(i.date||"").slice(0,7)===currentMonth))raise("inspect_due",`${currentMonth} 월별 점검 기록 미확인`);
+
+  // 핵심 관리정보 또는 점검 근거가 없으면 미확인 상태로 둔다.
+  if(!last)raise("unverified","점검 기록 없음 — 상태 확인 필요");
+  else if(daysBetween(last.date,today)>STALE_DAYS)raise("unverified",`최종 점검이 오래됨 (${last.date})`);
+  if(!d.model)raise("unverified","제품 모델 미확인");
+  if(!Number.isFinite(Number(d.lat))||!Number.isFinite(Number(d.lng))||Number(d.lat)===0||Number(d.lng)===0)raise("unverified","설치 좌표 미확인");
+
+  const def=STATUS_DEF[code]||STATUS_DEF.normal;
+  return {code,label:def.label,level:def.level,reasons,asOf:last?last.date:null,
+    basis:"사용 후 복구 · 소모품 유효기간 · 월별/기관별 점검주기 · 최종 점검결과"};
+}
+/* 상태 뱃지 — code 기준. '미확인'은 중립(회색) 톤으로 표시 */
+function statusBadge(st,text){
+  const cls=st.code==="unverified"?"neutral":st.level;
+  return `<span class="badge ${cls}">${esc(text||st.label)}</span>`;
+}
+
+/* 시급도 점수 — 값이 클수록 더 시급. 대시보드/기기관리 정렬에 사용.
+   레벨(위험>임박>정상)을 우선하고, 같은 레벨 안에서는 '가장 임박한 기한까지 남은 일수'로 정렬.
+   (만료를 많이 넘겼거나 D-day가 가까울수록 점수가 커짐) */
+function urgencyScore(d){
+  const today=todayStr();
+  const dates=[d.battery_expiry,d.pad_expiry,Store.nextInspectionDate(d)].filter(Boolean);
+  let minLeft=Infinity;
+  dates.forEach(dt=>{const left=daysBetween(today,dt);if(left<minLeft)minLeft=left;});
+  const st=deviceStatus(d);
+  // code별 가중치 (사용불가·수리필요가 최상위)
+  const CODE_W={post_use:10000000,unusable:9000000,repair:8000000,inspect_overdue:5000000,
+    unverified:3000000,battery_due:2500000,pad_due:2400000,inspect_due:1500000,normal:0};
+  const base=CODE_W[st.code]!=null?CODE_W[st.code]:({danger:2000000,warn:1000000,ok:0}[st.level]||0);
+  return base-(minLeft===Infinity?0:minLeft);
+}
+/* 시급한 순으로 정렬된 기기 목록 */
+function devicesByUrgency(list){
+  return (list||Store.listDevices()).slice().sort((a,b)=>urgencyScore(b)-urgencyScore(a));
+}
+
+/* 실제 설치정보는 관리자 등록·CSV·SafeMap 데이터 연동으로만 추가한다. */
+const SEED=[];
+
+/* ============================================================
+   PRODUCTS — 나눔테크 AED 제품 5종
+   세부 조작 순서는 공식 매뉴얼 저작권을 피해 AED 표준 절차로 재구성.
+   사진은 저작권상 실제 이미지 대신 SVG 일러스트. img 경로로 교체 가능.
+   ============================================================ */
+/* 공통 AED 사용 절차 (모델 공통). 제품별 세부 차이는 확인된 자료가 없어 공통 절차로 통일.
+   정확한 조작 순서는 각 제품 사용설명서를 따른다. */
+const AED_COMMON_STEPS=[
+  "전원을 켭니다. (덮개를 열면 켜지는 모델도 있습니다)",
+  "환자의 상의를 벗기고, 패드 그림대로 오른쪽 쇄골 아래와 왼쪽 옆구리에 부착합니다.",
+  "소아(8세 미만/체중 25kg 미만)인 경우 소아 모드/소아 패드를 사용합니다.",
+  "\"분석 중\" 안내가 나오면 환자에게서 모두 손을 뗍니다.",
+  "제세동 권고 시 깜빡이는 쇼크 버튼을 누른 뒤, 즉시 가슴압박을 재개합니다.",
+];
+const PRODUCTS=[
+  {id:"NT-381",name:"HeartPlus NT-381",tag:"",color:"#e3342f",img:"images/nt-381.jpg",
+   manufacturer:"(주)나눔테크",model_code:"NT-381",desc:"나눔테크 반자동 제세동기(AED).",
+   verified:false,features:[],steps:AED_COMMON_STEPS},
+  {id:"NT-381C",name:"HeartPlus II NT-381.C",tag:"",color:"#c81e1a",img:"images/nt-381c.jpg",
+   manufacturer:"(주)나눔테크",model_code:"NT-381.C",desc:"나눔테크 반자동 제세동기(AED).",
+   verified:false,features:[],steps:AED_COMMON_STEPS},
+  {id:"NT-180",name:"HeartPlus NT-180",tag:"",color:"#2f6bff",img:"images/nt-180.jpg",
+   manufacturer:"(주)나눔테크",model_code:"NT-180",desc:"나눔테크 반자동 제세동기(AED).",
+   verified:false,features:[],steps:AED_COMMON_STEPS},
+  {id:"HeartPro",name:"HeartPro",tag:"",color:"#14a86a",img:"images/heartpro.jpg",
+   manufacturer:"(주)나눔테크",model_code:"",desc:"나눔테크 제세동기(AED).",
+   verified:false,features:[],steps:AED_COMMON_STEPS},
+  {id:"ReHeart",name:"ReHeart NT-381.M",tag:"",color:"#8bc34a",img:"images/reheart.jpg",
+   manufacturer:"(주)나눔테크",model_code:"NT-381.M",desc:"나눔테크 반자동 제세동기(AED).",
+   verified:false,features:[],steps:AED_COMMON_STEPS},
+];
+/* 제품 제조사 공식 문의 (사이트맵·푸터에서 확인된 정보) */
+const NANOOM_CONTACT={tel:"062-955-8588",email:"nnt@nanoomtech.co.kr",site:"https://www.nanoomtech.co.kr/"};
+const PRODUCT_MAP={};PRODUCTS.forEach(p=>PRODUCT_MAP[p.id]=p);
+function productName(id){return (PRODUCT_MAP[id]&&PRODUCT_MAP[id].name)||id||"미지정";}
+
+/* 제품 이미지: 실제 사진(p.img)이 있으면 사진을, 로드 실패 시 오리지널 일러스트로 폴백.
+   사진을 images/ 폴더에 넣으면 자동으로 사진이 우선 표시된다. */
+function productMedia(p,{big=false}={}){
+  const h=big?170:124;
+  const svg=productSvg(p,{big});
+  if(p.img){
+    // onerror: 사진 파일이 없으면 자리의 일러스트로 교체
+    return `<img src="${p.img}" alt="${esc(p.name)} 제품 사진" loading="lazy"
+      style="width:100%;height:${h}px;object-fit:contain"
+      onerror="this.outerHTML=this.getAttribute('data-fallback')"
+      data-fallback='${svg.replace(/'/g,"&#39;")}'>`;
+  }
+  return svg;
+}
+/* 모델별 색상과 조작부를 단순화한 오리지널 AED 일러스트 (저작권 안전, 실제 사진 베끼지 않음). */
+function productSvg(p,{big=false}={}){
+  const h=big?170:124;
+  const hasScreen=p.id==="NT-180";
+  const hasDial=p.id==="ReHeart"||p.id==="NT-381"||p.id==="NT-381C";
+  return `<svg viewBox="0 0 170 160" width="100%" height="${h}" preserveAspectRatio="xMidYMid meet" aria-label="${esc(p.name)} 일러스트">
+    <defs><linearGradient id="g-${p.id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${p.color}" stop-opacity=".22"/><stop offset="1" stop-color="${p.color}" stop-opacity=".06"/></linearGradient></defs>
+    <!-- 손잡이 -->
+    <rect x="66" y="8" width="38" height="12" rx="6" fill="none" stroke="#2c3647" stroke-width="3"/>
+    <!-- 본체 -->
+    <rect x="28" y="18" width="114" height="130" rx="18" fill="#2c3647"/>
+    <rect x="34" y="24" width="102" height="118" rx="13" fill="url(#g-${p.id})"/>
+    <rect x="34" y="24" width="102" height="118" rx="13" fill="${p.color}" opacity=".9"/>
+    <!-- 상단 표시부: 디스플레이형이면 화면, 아니면 상태등 + 점검버튼 -->
+    ${hasScreen
+      ? `<rect x="48" y="34" width="74" height="34" rx="5" fill="#101826"/>
+         <rect x="54" y="40" width="40" height="5" rx="2" fill="${p.color}"/>
+         <rect x="54" y="50" width="56" height="4" rx="2" fill="#4a566b"/>
+         <rect x="54" y="58" width="48" height="4" rx="2" fill="#4a566b"/>`
+      : `<rect x="52" y="36" width="40" height="16" rx="4" fill="#101826"/>
+         <rect x="57" y="42" width="4" height="5" fill="${p.color}"/><rect x="63" y="40" width="4" height="7" fill="${p.color}"/><rect x="69" y="38" width="4" height="9" fill="${p.color}"/>
+         <circle cx="104" cy="44" r="8" fill="#2f6bff"/><text x="104" y="47" text-anchor="middle" fill="#fff" font-size="7" font-weight="800" font-family="sans-serif">S</text>`}
+    <!-- 하트 + AED 레터링 -->
+    <path d="M85 86c-4-8-17-6-17 4 0 8 17 16 17 16s17-8 17-16c0-10-13-12-17-4z" fill="#fff" opacity=".95"/>
+    <text x="85" y="122" text-anchor="middle" fill="#fff" font-size="15" font-weight="900" font-family="sans-serif" letter-spacing="2">AED</text>
+    <!-- 하단 조작부 -->
+    <circle cx="${hasDial?70:85}" cy="135" r="7" fill="#2f6bff"/>
+    <path d="M${hasDial?70:85} 131v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    ${hasDial?`<circle cx="100" cy="135" r="7" fill="#c98a3a"/>`:""}
+  </svg>`;
+}
+
+/* 조치사항 가이드 — 상태 원인별 필요 조치 + 준비물 (출동 체크리스트) */
+function actionGuide(d){
+  const today=todayStr();const items=[];
+  const batLeft=d.battery_expiry?daysBetween(today,d.battery_expiry):null;
+  const padLeft=d.pad_expiry?daysBetween(today,d.pad_expiry):null;
+  const next=Store.nextInspectionDate(d);const nLeft=daysBetween(today,next);
+  if(d.needs_post_use_check)items.push({urgent:true,task:"AED 사용 후 복구·재사용 준비 확인",
+    prep:["사용 기록 및 현장 상황 확인","패드 교체 여부 확인","배터리 상태 확인","자가점검 결과 확인","재배치 후 재사용 가능 여부 확인"]});
+  if(batLeft==null)items.push({urgent:false,task:"배터리 유효기간 확인",prep:["기기 라벨 또는 공식 자료 확인","확인한 유효기간 등록","규격이 불명확하면 제조사 문의"]});
+  else if(batLeft<=getAlertDays())items.push({urgent:batLeft<0,task:batLeft<0?`배터리 교체 (${-batLeft}일 경과)`:`배터리 교체 준비 (D-${batLeft})`,
+    prep:["제품 라벨·공식 매뉴얼로 확인한 호환 배터리","필요 공구","교체 후 자가점검 및 유효기간 등록"]});
+  if(padLeft==null)items.push({urgent:false,task:"패드 유효기간 확인",prep:["패드 포장·기기 라벨 확인","확인한 유효기간 등록","호환 규격이 불명확하면 제조사 문의"]});
+  else if(padLeft<=getAlertDays())items.push({urgent:padLeft<0,task:padLeft<0?`패드 교체 (${-padLeft}일 경과)`:`패드 교체 준비 (D-${padLeft})`,
+    prep:["제품 라벨·공식 매뉴얼로 확인한 호환 패드","성인·소아 적용 방식 확인","교체 후 밀봉·유효기간·연결 상태 확인"]});
+  if(nLeft<=getAlertDays())items.push({urgent:nLeft<0,task:nLeft<0?`정기 점검 기한 초과 (${-nLeft}일)`:`정기 점검 예정 (D-${nLeft})`,
+    prep:["기관 점검 체크리스트","기기 외관·상태 표시 확인","점검 결과 사진 촬영","점검 이력 등록"]});
+  if(!d.model)items.push({urgent:false,task:"제품 모델 확인",prep:["기기 명판 촬영","제조사·정확한 모델 코드 등록","공식 매뉴얼과 소모품 정보 확인"]});
+  if(!items.length)items.push({urgent:false,task:"현재 조치 필요 없음",prep:["다음 정기 점검일까지 모니터링"]});
+  return items;
+}
+
+/* ---------- 사용법 학습 단계 & 퀴즈 ---------- */
+const LEARN_STEPS=[
+  {ico:"📞",n:"STEP 1",title:"119 신고 & 도움 요청",desc:"쓰러진 사람을 발견하면 먼저 어깨를 두드리며 반응을 확인하고, 주변에 큰 소리로 119 신고와 AED를 요청하세요. 혼자라면 직접 119에 신고합니다."},
+  {ico:"🫳",n:"STEP 2",title:"가슴압박 시작",desc:"반응과 정상 호흡이 없으면 즉시 가슴 중앙을 분당 100~120회 속도로 약 5cm 깊이로 강하게 압박합니다. AED가 올 때까지 멈추지 않습니다."},
+  {ico:"🔌",n:"STEP 3",title:"AED 전원 켜기",desc:"AED가 도착하면 전원 버튼을 누릅니다. 이후에는 기기의 음성 안내를 그대로 따르면 됩니다. 당황하지 말고 지시대로 행동하세요."},
+  {ico:"🩹",n:"STEP 4",title:"패드 부착",desc:"상의를 벗기고 패드 그림대로 오른쪽 쇄골 아래, 왼쪽 옆구리에 부착합니다. 땀이 많으면 닦고, 가슴털이 많으면 밀어낸 뒤 밀착시킵니다."},
+  {ico:"⚡",n:"STEP 5",title:"심장리듬 분석 & 제세동",desc:"\"분석 중\" 안내가 나오면 모두 환자에게서 손을 뗍니다. 제세동이 필요하면 깜빡이는 버튼을 누르고, 쇼크 후 즉시 가슴압박을 다시 시작합니다."},
+];
+const SEED_QUIZ=[
+  {q:"쓰러진 사람을 발견했을 때 가장 먼저 할 일은?",opts:["물을 먹인다","반응 확인 후 119 신고·AED 요청","AED 패드를 바로 붙인다","기다린다"],answer:1,
+   explain:"어깨를 두드려 반응을 확인하고, 없으면 즉시 119에 신고하고 주변에 AED를 요청합니다. 신속한 신고가 생존율을 높입니다."},
+  {q:"가슴압박의 권장 속도는?",opts:["분당 40~60회","분당 100~120회","분당 200회 이상","느릴수록 좋다"],answer:1,
+   explain:"성인 기준 분당 100~120회, 약 5cm 깊이로 강하게 압박합니다. 압박 사이에는 가슴이 완전히 올라오도록 합니다."},
+  {q:"AED가 \"분석 중\"이라고 안내할 때 해야 할 행동은?",opts:["계속 가슴을 압박한다","환자에게서 모두 손을 뗀다","패드를 뗀다","전원을 끈다"],answer:1,
+   explain:"분석 중에는 환자에게서 모두 손을 떼야 정확한 심전도 분석이 됩니다. 분석이 끝나면 즉시 안내에 따릅니다."},
+];
+/* 학습 콘텐츠 출처·개정 표기 (공식 지침 최종 확인 필요) */
+const LEARN_SOURCE={note:"일반적인 심폐소생술·AED 사용 흐름 기준",checked:"공식 최신 지침 재확인 필요",rev:"미확인"};
+
+/* ============================================================
+   ROUTER — 모드(시민/관리자)별 탭 구성
+   ============================================================ */
+const Views={};
+const MODES={
+  citizen:{label:"시민용",tabs:[
+    {id:"home",ico:"🏠",label:"홈"},
+    {id:"map",ico:"🗺️",label:"AED 지도"},
+    {id:"products",ico:"📦",label:"제품 사용법"},
+    {id:"learn",ico:"📚",label:"사용법 학습"},
+    {id:"status",ico:"🕑",label:"점검 현황"},
+  ]},
+  admin:{label:"관리자용",tabs:[
+    {id:"dashboard",ico:"📊",label:"대시보드"},
+    {id:"devices",ico:"🛠️",label:"기기 관리"},
+    {id:"recovery",ico:"🔁",label:"사용 후 복구"},
+    {id:"tasks",ico:"🧰",label:"조치 작업"},
+    {id:"inspection",ico:"✅",label:"점검 이력"},
+    {id:"report",ico:"📄",label:"점검 보고서"},
+    {id:"datacenter",ico:"🌐",label:"데이터 연동"},
+    {id:"settings",ico:"⚙️",label:"운영 설정"},
+  ]},
+};
+let activeMode="citizen";
+let activeView="home";
+
+/* 관리자 인증 (데모용 프런트 게이트 — 실제 보안 아님, 2단계에서 서버 인증으로 교체) */
+const ADMIN_PASSWORD="1234@";
+let adminUnlocked=false,pendingAdminView=null;
+const viewOwner=view=>Object.keys(MODES).find(mode=>MODES[mode].tabs.some(t=>t.id===view))||null;
+function updateAdminChrome(){
+  const topExport=$("#topCsvExport");if(topExport)topExport.classList.toggle("hidden",!(adminUnlocked&&activeMode==="admin"));
+}
+function renderTabs(){
+  const nav=$("#tabs");
+  nav.innerHTML=MODES[activeMode].tabs.map(t=>
+    `<button class="tab ${t.id===activeView?"active":""}" data-view="${t.id}">${t.ico} <span>${t.label}</span></button>`).join("")
+    +(activeMode==="admin"?`<button class="tab" id="adminLock" title="관리자 모드 잠금">🔒 <span>잠금</span></button>`:"");
+  nav.querySelectorAll(".tab[data-view]").forEach(t=>t.addEventListener("click",()=>go(t.dataset.view)));
+  const lock=nav.querySelector("#adminLock");if(lock)lock.addEventListener("click",lockAdmin);
+  updateAdminChrome();
+}
+function setMode(mode,targetView){
+  if(!MODES[mode])return;
+  const target=targetView&&viewOwner(targetView)===mode?targetView:MODES[mode].tabs[0].id;
+  if(mode==="admin"&&!adminUnlocked){pendingAdminView=target;openAdminLogin(target);return;}
+  activeMode=mode;
+  $$("#modeSwitch .ms-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
+  renderTabs();go(target);
+}
+function openAdminLogin(targetView){
+  if(targetView&&viewOwner(targetView)==="admin")pendingAdminView=targetView;
+  openModal(`
+    <div class="modal-head"><h2>🔑 관리자 인증</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <p class="muted" style="font-size:12.5px;margin-bottom:14px">설치기관 담당자 전용입니다. 이 인증은 시연용 프런트 게이트이며 서버 보안을 대신하지 않습니다.</p>
+    <form id="adminLoginForm">
+      <div class="field"><label>비밀번호</label>
+        <input class="control" type="password" name="pw" autocomplete="current-password" required placeholder="비밀번호 입력" autofocus></div>
+      <div class="msg-line" id="adminLoginMsg" style="display:none;color:var(--danger);font-size:12px;margin-bottom:10px" role="alert"></div>
+      <button class="btn solid block" type="submit">관리자 모드 진입 →</button>
+    </form>`);
+  const form=$("#adminLoginForm");setTimeout(()=>form.querySelector('input[name="pw"]').focus(),50);
+  form.addEventListener("submit",e=>{e.preventDefault();const pw=new FormData(form).get("pw");if(pw===ADMIN_PASSWORD){const target=pendingAdminView||"dashboard";pendingAdminView=null;adminUnlocked=true;closeModal();toast("관리자 모드로 전환했습니다.");setMode("admin",target);}else{const msg=$("#adminLoginMsg");msg.style.display="block";msg.textContent="비밀번호가 올바르지 않습니다.";const input=form.querySelector('input[name="pw"]');input.value="";input.focus();}});
+}
+function lockAdmin(){adminUnlocked=false;pendingAdminView=null;toast("관리자 모드를 잠갔습니다.");setMode("citizen","home");}
+window.lockAdmin=lockAdmin;
+function go(view){
+  const owner=viewOwner(view);
+  if(!owner){view=MODES[activeMode].tabs[0].id;}
+  const resolvedOwner=viewOwner(view);
+  if(resolvedOwner==="admin"&&!adminUnlocked){pendingAdminView=view;openAdminLogin(view);return;}
+  if(resolvedOwner&&resolvedOwner!==activeMode){activeMode=resolvedOwner;$$("#modeSwitch .ms-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===activeMode));renderTabs();}
+  if(activeView==="map"&&view!=="map")disposeMap();
+  activeView=view;$$("#tabs .tab").forEach(t=>t.classList.toggle("active",t.dataset.view===view));updateAdminChrome();
+  const host=$("#view");host.innerHTML="";(Views[view]||(()=>host.innerHTML="준비 중"))(host);
+}
+$$("#modeSwitch .ms-btn").forEach(b=>b.addEventListener("click",()=>setMode(b.dataset.mode)));
+$("#overlay").addEventListener("click",closeModal);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+
+/* ============================================================
+   VIEW: 시민 홈
+   ============================================================ */
+Views.home=function(host){
+  const devices=Store.listDevices(),settings=Store.getSettings();const stat={ok:0,warn:0,danger:0};devices.forEach(d=>stat[deviceStatus(d).level]++);
+  const inspected=devices.filter(d=>Store.lastInspection(d)).length;
+  host.innerHTML=`
+    <section class="home-hero" aria-labelledby="homeTitle">
+      <div><span class="badge info">${esc(settings.org)}</span><h1 id="homeTitle">가까운 AED를 찾고,<br>생명을 살리는 순서를 익히세요.</h1><p>AED Care는 시민에게 위치·공개 점검 상태·사용법을 안내합니다. 응급상황에서는 앱보다 먼저 119 신고와 가슴압박을 시작하세요.</p></div>
+      <div class="home-emergency"><div style="font-size:34px">🚨</div><b style="font-size:18px">응급상황인가요?</b><p style="color:#fff;font-size:12px;margin-top:4px">이 앱은 119 신고를 대신하지 않습니다.</p><a class="btn" href="tel:119" aria-label="119 전화 걸기">📞 119 전화 걸기</a></div>
+    </section>
+    ${hasSeedData()?`<div class="notice-box" style="margin-top:14px"><b>⚠️ 시연 데이터가 포함되어 있습니다.</b> 현재 위치·점검 정보는 실제 운영 데이터가 아닌 예시일 수 있습니다.</div>`:""}
+    <div class="cta-grid">
+      <button class="card cta-card" data-home-go="map"><span style="font-size:25px">🗺️</span><b>내 주변 AED</b><p>지도에서 위치와 운영 정보를 확인합니다.</p></button>
+      <button class="card cta-card" data-home-go="products"><span style="font-size:25px">📦</span><b>제품 사용법</b><p>설치 모델별 공통 사용 절차를 봅니다.</p></button>
+      <button class="card cta-card" data-home-go="learn"><span style="font-size:25px">📚</span><b>3분 학습</b><p>단계별 학습과 퀴즈를 진행합니다.</p></button>
+      <button class="card cta-card" data-home-go="status"><span style="font-size:25px">🕑</span><b>공개 점검 현황</b><p>최근 점검과 소모품 상태를 확인합니다.</p></button>
+    </div>
+    <div class="grid kpi-grid">
+      <div class="card kpi"><div class="k-top"><span>정상 사용 가능</span></div><div class="k-val" style="color:var(--ok)">${stat.ok}<small> 대</small></div><div class="k-foot">현재 판정 기준</div></div>
+      <div class="card kpi"><div class="k-top"><span>확인·조치 필요</span></div><div class="k-val" style="color:var(--warn)">${stat.warn+stat.danger}<small> 대</small></div><div class="k-foot">임박·초과·미확인</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 기록 공개</span></div><div class="k-val">${inspected}<small> 대</small></div><div class="k-foot">최근 점검 기록 보유</div></div>
+    </div>`;
+  host.querySelectorAll("[data-home-go]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.homeGo)));
+};
+
+/* ============================================================
+   VIEW: AED 지도 (시민용)
+   ============================================================ */
+let _map=null,_markers={},_userMarker=null,_mapTileLayer=null,_mapSession=0;
+const MAP_TILE_PROVIDERS=[
+  {name:"OpenStreetMap",url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",options:{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}},
+  {name:"OpenStreetMap DE",url:"https://tile.openstreetmap.de/{z}/{x}/{y}.png",options:{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}},
+  {name:"CARTO",url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",options:{maxZoom:20,subdomains:"abcd",attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}},
+];
+function validMapDevices(devices){return (devices||[]).filter(d=>Number.isFinite(Number(d.lat))&&Number.isFinite(Number(d.lng))&&Number(d.lat)>=-90&&Number(d.lat)<=90&&Number(d.lng)>=-180&&Number(d.lng)<=180&&!(Number(d.lat)===0&&Number(d.lng)===0));}
+function setMapNotice(message,tone="warn"){const notice=$("#mapStatusNotice");if(!notice)return;notice.className=`map-status-notice ${tone}`;notice.textContent=message;}
+function disposeMap(){_mapSession++;if(_map){try{_map.remove();}catch(e){}}_map=null;_mapTileLayer=null;_markers={};_userMarker=null;resetDbLayerState();}
+function addTileProvider(index,devices,session){
+  if(!_map||session!==_mapSession)return;
+  if(index>=MAP_TILE_PROVIDERS.length){renderStaticMapFallback(devices,"외부 배경지도 접속이 제한되어 좌표 기반 지도로 전환했습니다.");return;}
+  const provider=MAP_TILE_PROVIDERS[index];let loaded=0,errors=0,switched=false,timer=null;
+  const switchProvider=()=>{if(switched||session!==_mapSession)return;switched=true;clearTimeout(timer);try{if(_mapTileLayer)_map.removeLayer(_mapTileLayer);}catch(e){}setMapNotice(`${provider.name} 접속 실패 · 대체 지도로 전환 중…`,"warn");addTileProvider(index+1,devices,session);};
+  try{
+    _mapTileLayer=L.tileLayer(provider.url,{...provider.options,crossOrigin:true,updateWhenIdle:true,keepBuffer:2});
+    _mapTileLayer.on("tileload",()=>{loaded++;if(loaded===1){clearTimeout(timer);setMapNotice(`지도 정상 연결 · ${provider.name}`,"ok");}});
+    _mapTileLayer.on("tileerror",()=>{errors++;if(loaded===0&&errors>=4)switchProvider();});
+    _mapTileLayer.addTo(_map);
+  }catch(e){switchProvider();return;}
+  timer=setTimeout(()=>{if(loaded===0)switchProvider();},7000);
+}
+function renderStaticMapFallback(devices,reason){
+  if(_map){try{_map.remove();}catch(e){}}_map=null;_mapTileLayer=null;_markers={};
+  const host=$("#map");if(!host)return;const valid=validMapDevices(devices);
+  if(!valid.length){host.innerHTML='<div class="static-map"><div class="static-map-empty"><div><b>지도는 정상 실행 중입니다</b><span>등록된 AED 좌표가 없습니다. 실제 데이터를 등록하면 위치가 표시됩니다.</span></div></div></div>';setMapNotice(reason||"배경지도 없이 실행 중 · 등록된 좌표 없음","warn");dbStaticFallbackNotice();return;}
+  let minLat=Math.min(...valid.map(d=>Number(d.lat))),maxLat=Math.max(...valid.map(d=>Number(d.lat))),minLng=Math.min(...valid.map(d=>Number(d.lng))),maxLng=Math.max(...valid.map(d=>Number(d.lng)));
+  if(maxLat-minLat<.01){minLat-=.01;maxLat+=.01;}if(maxLng-minLng<.01){minLng-=.01;maxLng+=.01;}
+  const markers=valid.map(d=>{const x=5+90*(Number(d.lng)-minLng)/(maxLng-minLng),y=95-90*(Number(d.lat)-minLat)/(maxLat-minLat),st=deviceStatus(d);return `<button class="static-map-marker" data-static-id="${esc(d.id)}" title="${esc(d.name)}" aria-label="${esc(d.name)} 위치" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;background:${markerColor(st.level)}"><span>♥</span></button>`;}).join("");
+  host.innerHTML=`<div class="static-map">${markers}</div>`;setMapNotice(reason||"좌표 기반 오프라인 지도 · AED 마커는 정상 표시됩니다.","warn");
+  dbStaticFallbackNotice();
+  host.querySelectorAll("[data-static-id]").forEach(m=>m.addEventListener("click",()=>openDeviceDetail(m.dataset.staticId)));
+}
+function initializeMap(devices){
+  disposeMap();const session=_mapSession,valid=validMapDevices(devices);setMapNotice("지도 초기화 중…","warn");
+  if(!window.L||typeof L.map!=="function"){renderStaticMapFallback(devices,"로컬 지도 엔진을 불러오지 못해 좌표 기반 지도로 표시합니다.");return;}
+  try{
+    _map=L.map("map",{zoomControl:true,preferCanvas:true}).setView([36.3,127.8],7);
+    valid.forEach(d=>addDeviceMarker(d));
+    if(valid.length===1)_map.setView([Number(valid[0].lat),Number(valid[0].lng)],16);
+    else if(valid.length>1)_map.fitBounds(L.latLngBounds(valid.map(d=>[Number(d.lat),Number(d.lng)])),{padding:[28,28],maxZoom:15});
+    addTileProvider(0,devices,session);
+    setupDbLayer(session,valid.length>0);
+    setTimeout(()=>{if(_map&&session===_mapSession)_map.invalidateSize();},200);
+  }catch(e){console.warn("Leaflet map initialization failed",e);renderStaticMapFallback(devices,"지도 초기화 오류로 좌표 기반 지도를 표시합니다.");}
+}
+function updateStaticMapVisibility(visible){$("#map")?.querySelectorAll("[data-static-id]").forEach(marker=>{marker.style.display=visible.has(marker.dataset.staticId)?"block":"none";});}
+Views.map=function(host){
+  disposeMap();const devices=Store.listDevices();
+  host.innerHTML=`
+    <div class="page-head">
+      <div><h1>내 주변 AED 찾기</h1><p>가까운 자동심장충격기 위치와 사용 가능 상태를 확인하세요.</p></div>
+      <div class="head-actions"><button class="btn" id="locBtn">📍 내 위치</button><button class="btn" data-go="products">📦 제품 사용법</button><button class="btn emergency" id="useBtn">🚨 지금 AED 사용 중</button></div>
+    </div>
+    <div class="map-layout">
+      <div class="aed-list" id="aedList">
+        <div class="filter-panel map-filter">
+          <input class="control" id="aedSearch" aria-label="AED 장소, 주소, 모델 검색" placeholder="장소·주소·건물·모델 검색">
+          <select class="control" id="mapStatus" aria-label="AED 상태 필터"><option value="">모든 상태</option>${Object.entries(STATUS_DEF).map(([code,x])=>`<option value="${code}">${x.label}</option>`).join("")}</select>
+        </div>
+        <div class="filter-summary" id="mapCount"></div><div id="aedItems"></div><div id="dbItems"></div>
+      </div><section class="map-stage"><div id="map" aria-label="AED 위치 지도"></div><div class="map-status-notice warn" id="mapStatusNotice" role="status">지도 초기화 중…</div></section>
+    </div>`;
+  host.querySelector("[data-go]").addEventListener("click",()=>go("products"));host.querySelector("#useBtn").addEventListener("click",openUseModal);
+  initializeMap(devices);
+  const applyFilters=()=>{const q=$("#aedSearch").value,status=$("#mapStatus").value;_mapFilter={q,status};refreshDbView();const filtered=devices.filter(d=>(!normalizeSearch(q)||deviceSearchText(d).includes(normalizeSearch(q)))&&(!status||deviceStatus(d).code===status));const visible=new Set(filtered.map(d=>d.id));if(_map)Object.entries(_markers).forEach(([id,m])=>{if(visible.has(id)){if(!_map.hasLayer(m))m.addTo(_map);}else if(_map.hasLayer(m))_map.removeLayer(m);});else updateStaticMapVisibility(visible);renderAedItems(filtered);$("#mapCount").textContent=`검색 결과 ${filtered.length}대 / 전체 ${devices.length}대`;};
+  ["aedSearch","mapStatus"].forEach(id=>{$("#"+id).addEventListener("input",applyFilters);$("#"+id).addEventListener("change",applyFilters);});
+  applyFilters();$("#locBtn").addEventListener("click",locateUser);
+};
+function markerColor(level){return level==="danger"?"#e23b53":level==="warn"?"#d98a00":"#14a86a";}
+function addDeviceMarker(d){
+  const lat=Number(d.lat),lng=Number(d.lng);if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat===0&&lng===0)return null;
+  const st=deviceStatus(d);
+  const icon=L.divIcon({className:"",html:
+    `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+      background:${markerColor(st.level)};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);
+      display:grid;place-items:center">
+      <span style="transform:rotate(45deg);color:#fff;font-size:14px;font-weight:900">♥</span></div>`,
+    iconSize:[30,30],iconAnchor:[15,28],popupAnchor:[0,-26]});
+  const m=L.marker([lat,lng],{icon}).addTo(_map);
+  m.bindPopup(popupHtml(d,st));
+  _markers[d.id]=m;
+}
+function popupHtml(d,st){
+  st=st||deviceStatus(d);
+  const last=Store.lastInspection(d);
+  const loc=[d.building,d.floor,d.spot].filter(Boolean).join(" ");
+  const srcLabel={manual:"직접 입력",csv:"CSV 등록",public:"공공데이터"}[d.source]||"미확인";
+  const field=(label,val)=>`<span style="font-size:12px;color:#48566b">${label}: ${val?esc(val):'<span style="color:#9aa6bb">정보 미확인</span>'}</span><br>`;
+  return `<div style="min-width:180px"><b>${esc(d.name)}</b><br>
+    <span class="muted" style="font-size:12px">${esc(d.address)}</span><br>
+    <span class="badge ${st.code==="unverified"?"neutral":st.level}" style="margin-top:6px">${esc(st.label)}</span><br>
+    ${field("상세 위치",loc)}
+    ${field("운영시간",d.hours)}
+    ${field("출입",d.access)}
+    <span style="font-size:12px;color:#48566b">최근 점검: ${last?last.date:'<span style="color:#9aa6bb">기록 없음</span>'}</span><br>
+    <span style="font-size:11px;color:#9aa6bb">출처 ${srcLabel} · 상태 기준일 ${st.asOf||"미확인"}</span><br>
+    <a href="https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}" target="_blank"
+      style="color:#2f6bff;font-size:12px;font-weight:700">길찾기(실제 경로) →</a>
+    <span style="font-size:10px;color:#9aa6bb;display:block">※ 지도 직선거리와 실제 도보 경로는 다를 수 있습니다.</span></div>`;
+}
+function renderAedItems(list){
+  const box=$("#aedItems");if(!box)return;
+  if(!list.length&&!Store.listDevices().length){box.innerHTML=`<div class="db-note">관리 등록된 AED는 아직 없습니다. 아래 공공 AED 목록과 지도를 확인하세요.</div>`;return;}
+  if(!list.length){box.innerHTML=`<div class="empty"><div class="ic">🔍</div><b>결과 없음</b><p>다른 검색어를 입력해 보세요.</p></div>`;return;}
+  box.innerHTML=list.map(d=>{
+    const st=deviceStatus(d);const last=Store.lastInspection(d);
+    return `<div class="aed-item" data-id="${d.id}" tabindex="0" role="button" aria-label="${esc(d.name)} 지도에서 보기">
+      <div class="ai-top"><strong>${esc(d.name)}</strong>${statusBadge(st)}</div>
+      <div class="addr">${esc(d.address)}</div>
+      <div class="meta"><span>🔋 배터리 ~${d.battery_expiry||"-"}</span><span>🩹 패드 ~${d.pad_expiry||"-"}</span><span>🕑 점검 ${last?last.date:"없음"}</span></div>
+      <button class="btn sm block" data-detail="${d.id}" style="margin-top:9px">상세 정보</button>
+    </div>`;}).join("");
+  box.querySelectorAll("[data-detail]").forEach(btn=>btn.addEventListener("click",e=>{e.stopPropagation();openDeviceDetail(btn.dataset.detail);}));
+  box.querySelectorAll(".aed-item").forEach(it=>{const select=()=>{
+    const d=Store.getDevice(it.dataset.id);if(!d)return;
+    if(_map){_map.setView([Number(d.lat),Number(d.lng)],16);_markers[d.id]&&_markers[d.id].openPopup();}
+    else{$("#map")?.querySelectorAll("[data-static-id]").forEach(marker=>marker.classList.toggle("active",marker.dataset.staticId===d.id));}
+    box.querySelectorAll(".aed-item").forEach(x=>x.classList.remove("active"));it.classList.add("active");
+  };it.addEventListener("click",select);it.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();select();}});});
+}
+/* ------------------------------------------------------------
+   공공 AED 데이터베이스(Supabase, SafeMap 62,000건) 레이어
+   브라우저는 /api/aeds 만 호출하고, DB 키는 서버(server.py)에만 있습니다.
+   ------------------------------------------------------------ */
+const DB_MIN_ZOOM=14,DB_FETCH_LIMIT=2000,DB_LIST_LIMIT=30; // DB_MIN_ZOOM 이상: 개별 위치·상세, 미만: 전국 묶음 표시
+let _dbLayer=null,_dbMarkers={},_dbItems=[],_dbConfigured=null,_dbTimer=null,_dbSeq=0,_dbLoadedBounds=null,_dbTruncated=false,_dbOriginLabel="지도 중심에서",_dbActiveId=null,_userLoc=null,_mapFilter={q:"",status:""};
+let _dbClusterLayer=null,_dbPoints=null,_dbPointsPromise=null; // 전국 좌표 묶음(한 번 받으면 화면을 옮겨도 재사용)
+function resetDbLayerState(){clearTimeout(_dbTimer);_dbSeq++;_dbLayer=null;_dbClusterLayer=null;_dbMarkers={};_dbItems=[];_dbLoadedBounds=null;_dbTruncated=false;_dbActiveId=null;}
+function loadDbPoints(){
+  if(_dbPoints)return Promise.resolve(_dbPoints);
+  if(!_dbPointsPromise)_dbPointsPromise=fetch("/api/aeds/points").then(async r=>{const j=await r.json();if(!r.ok||!Array.isArray(j.points))throw new Error(j.message||"조회 실패");_dbPoints=j;return j;}).catch(e=>{_dbPointsPromise=null;throw e;});
+  return _dbPointsPromise;
+}
+function fmtCount(n){return n>=10000?`${(n/10000).toFixed(1).replace(/\.0$/,"")}만`:Number(n).toLocaleString("ko-KR");}
+/* 전국 보기: 화면 픽셀 격자로 좌표를 묶어 숫자 원으로 표시 (확대 수준 DB_MIN_ZOOM 미만) */
+function renderDbClusters(){
+  if(_dbClusterLayer)_dbClusterLayer.clearLayers();
+  if(!_map||!_dbClusterLayer||!_dbPoints||_map.getZoom()>=DB_MIN_ZOOM)return 0;
+  if(_mapFilter.status&&_mapFilter.status!=="unverified")return 0;
+  const z=_map.getZoom(),b=_map.getBounds().pad(0.1),S=_dbPoints.scale||100000,P=_dbPoints.points,cell=z>=10?52:64,world=256*Math.pow(2,z);
+  const minLat=b.getSouth(),maxLat=b.getNorth(),minLng=b.getWest(),maxLng=b.getEast(),view=_map.getBounds();
+  const cells=new Map();let inView=0;
+  for(let i=0;i<P.length;i+=3){
+    const lat=P[i]/S,lng=P[i+1]/S;if(lat<minLat||lat>maxLat||lng<minLng||lng>maxLng)continue;
+    if(view.contains([lat,lng]))inView++;
+    const s=Math.sin(lat*Math.PI/180),x=(lng+180)/360*world,y=(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*world;
+    const k=Math.floor(x/cell)*100000+Math.floor(y/cell);let c=cells.get(k);if(!c){c={n:0,lat:0,lng:0};cells.set(k,c);}c.n++;c.lat+=lat;c.lng+=lng;
+  }
+  cells.forEach(c=>{
+    const lat=c.lat/c.n,lng=c.lng/c.n,size=c.n>=5000?60:c.n>=1000?52:c.n>=100?44:c.n>=10?36:28;
+    const m=L.marker([lat,lng],{icon:L.divIcon({className:"",html:`<div class="db-cluster" style="width:${size}px;height:${size}px">${fmtCount(c.n)}</div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]}),title:`공공 AED ${c.n.toLocaleString("ko-KR")}곳 · 눌러서 확대`});
+    m.on("click",()=>_map.setView([lat,lng],c.n<=30?DB_MIN_ZOOM+1:Math.min(DB_MIN_ZOOM+1,z+2)));
+    m.addTo(_dbClusterLayer);
+  });
+  return inView;
+}
+/* 시도별 범위로 이동 */
+function flyToSido(name){
+  if(!_map||!_dbPoints)return;const idx=_dbPoints.sidoNames.indexOf(name);if(idx<0)return;
+  const S=_dbPoints.scale||100000,P=_dbPoints.points,lats=[],lngs=[];
+  for(let i=0;i<P.length;i+=3){if(P[i+2]===idx){lats.push(P[i]/S);lngs.push(P[i+1]/S);}}
+  if(!lats.length)return;
+  // 시도 값과 좌표가 어긋난 일부 레코드 때문에 범위가 넓어지지 않도록 양끝 2%를 제외
+  lats.sort((x,y)=>x-y);lngs.sort((x,y)=>x-y);
+  const q=(arr,p)=>arr[Math.min(arr.length-1,Math.max(0,Math.round((arr.length-1)*p)))];
+  _map.fitBounds([[q(lats,.02),q(lngs,.02)],[q(lats,.98),q(lngs,.98)]],{padding:[20,20],maxZoom:12});
+}
+function renderDbOverview(inView){
+  const box=$("#dbItems");if(!box||!_dbPoints)return;
+  const q=normalizeSearch(_mapFilter.q),hidden=_mapFilter.status&&_mapFilter.status!=="unverified";
+  const sido=_dbPoints.sido.filter(s=>s.name!=="미상"&&(!q||normalizeSearch(s.name).includes(q)));
+  box.innerHTML=`<div class="db-head">전국 공공 AED ${Number(_dbPoints.count).toLocaleString("ko-KR")}곳 <span>SafeMap DB</span></div>
+    <div class="db-note">${hidden?"선택한 상태 필터에는 공공 AED(상태 미확인)가 포함되지 않아 지도에서 숨겼습니다.":`현재 화면 ${Number(inView||0).toLocaleString("ko-KR")}곳 · 숫자 원이나 지역을 누르면 확대됩니다. 동네 단위까지 확대하면 개별 위치와 상세 정보가 나옵니다.`}</div>
+    <div class="db-sido">${sido.map(s=>`<button type="button" class="db-sido-btn" data-sido="${esc(s.name)}"><b>${esc(s.name)}</b><span>${Number(s.count).toLocaleString("ko-KR")}곳</span></button>`).join("")||'<div class="db-note">검색어와 일치하는 지역이 없습니다.</div>'}</div>`;
+  box.querySelectorAll("[data-sido]").forEach(btn=>btn.addEventListener("click",()=>{if(_map)flyToSido(btn.dataset.sido);else toast("배경지도 제한으로 지역 이동을 할 수 없습니다. ‘내 위치’로 가까운 AED를 확인하세요.");}));
+}
+function distanceMeters(lat1,lng1,lat2,lng2){const R=6371000,toR=x=>x*Math.PI/180,dLat=toR(lat2-lat1),dLng=toR(lng2-lng1);const h=Math.sin(dLat/2)**2+Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));}
+function fmtDist(m){m=Number(m);if(!Number.isFinite(m))return "-";return m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`;}
+async function checkDbConfigured(){
+  if(_dbConfigured===true)return true;
+  try{const r=await fetch("/api/health",{cache:"no-store"});const j=await r.json();_dbConfigured=!!(r.ok&&j.dbConfigured);}catch(e){_dbConfigured=false;}
+  return _dbConfigured;
+}
+function dbCoordKey(lat,lng){return Number(lat).toFixed(4)+","+Number(lng).toFixed(4);}
+/* 검색어·상태 필터 적용 + 관리 등록 기기와 같은 좌표(약 10m 이내)는 중복 표시하지 않음 */
+function dbVisibleItems(){
+  const q=normalizeSearch(_mapFilter.q),status=_mapFilter.status;
+  if(status&&status!=="unverified")return [];
+  const local=new Set(validMapDevices(Store.listDevices()).map(d=>dbCoordKey(d.lat,d.lng)));
+  return _dbItems.filter(a=>!local.has(dbCoordKey(a.latitude,a.longitude))&&(!q||normalizeSearch([a.name,a.address,a.detail_address,a.sido,a.gugun,a.source_maker,a.source_model].join(" ")).includes(q)));
+}
+function dbPopupHtml(a){
+  const device=[a.source_maker,a.source_model].filter(Boolean).join(" ");
+  const dist=a.distance_m!=null&&Number.isFinite(Number(a.distance_m))?` · ${_dbOriginLabel} 약 ${fmtDist(a.distance_m)}`:"";
+  return `<div style="min-width:190px"><b>${esc(a.name)}</b><br>
+    <span style="font-size:12px;color:#48566b">${esc(a.address)}</span><br>
+    ${a.detail_address?`<span style="font-size:12px;color:#48566b">상세 위치: ${esc(a.detail_address)}</span><br>`:""}
+    ${device?`<span style="font-size:12px;color:#48566b">기기: ${esc(device)}</span><br>`:""}
+    <span class="badge neutral" style="margin-top:6px">점검 상태 미확인</span><br>
+    <span style="font-size:11px;color:#9aa6bb">출처 공공데이터(SafeMap) DB${dist}</span><br>
+    <a href="https://www.google.com/maps/dir/?api=1&destination=${Number(a.latitude)},${Number(a.longitude)}" target="_blank" rel="noopener"
+      style="color:#2f6bff;font-size:12px;font-weight:700">길찾기(실제 경로) →</a>
+    <span style="font-size:10px;color:#9aa6bb;display:block">※ 공공데이터 기준 위치이며 실제 설치 상태는 현장에서 확인하세요.</span></div>`;
+}
+function renderDbItems(items,message){
+  const box=$("#dbItems");if(!box)return;
+  if(message){box.innerHTML=`<div class="db-head">공공 AED 데이터베이스 <span>SafeMap 62,000건</span></div><div class="db-note">${esc(message)}</div>`;return;}
+  const shown=items.slice(0,DB_LIST_LIMIT);
+  box.innerHTML=`<div class="db-head">이 지역 공공 AED ${items.length}${_dbTruncated?"+":""}곳 <span>SafeMap DB</span></div>`+
+    (shown.length?shown.map(a=>`<div class="aed-item db-item${String(a.id)===String(_dbActiveId)?" active":""}" data-db-id="${esc(a.id)}" tabindex="0" role="button" aria-label="${esc(a.name)} 지도에서 보기">
+      <div class="ai-top"><strong>${esc(a.name)}</strong><span class="badge neutral">상태 미확인</span></div>
+      <div class="addr">${esc(a.address)}</div>
+      ${a.detail_address?`<div class="addr">${esc(a.detail_address)}</div>`:""}
+      ${a.distance_m!=null?`<div class="meta"><span>📏 ${_dbOriginLabel} ${fmtDist(a.distance_m)}</span></div>`:""}
+    </div>`).join("")+(items.length>shown.length?`<div class="db-note">가까운 순 ${DB_LIST_LIMIT}곳만 목록에 표시합니다. 나머지는 지도에서 확인하세요.</div>`:"")
+    :`<div class="db-note">이 지역에서 조건에 맞는 공공 AED가 없습니다.</div>`);
+  box.querySelectorAll("[data-db-id]").forEach(it=>{const select=()=>{
+    const a=_dbItems.find(x=>String(x.id)===it.dataset.dbId);if(!a)return;_dbActiveId=a.id;
+    box.querySelectorAll(".db-item").forEach(x=>x.classList.remove("active"));it.classList.add("active");
+    if(_map){_map.setView([Number(a.latitude),Number(a.longitude)],Math.max(_map.getZoom(),17));_dbMarkers[a.id]&&_dbMarkers[a.id].openPopup();}
+  };it.addEventListener("click",select);it.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();select();}});});
+}
+function renderDbLayer(){
+  const items=dbVisibleItems();
+  if(_map&&_dbLayer){
+    _dbLayer.clearLayers();_dbMarkers={};
+    items.forEach(a=>{const lat=Number(a.latitude),lng=Number(a.longitude);if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+      const m=L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:2,fillColor:"#0f8b8d",fillOpacity:.9});
+      m.bindPopup(dbPopupHtml(a));m.on("click",()=>{_dbActiveId=a.id;});m.addTo(_dbLayer);_dbMarkers[a.id]=m;});
+    if(_dbActiveId&&_dbMarkers[_dbActiveId])_dbMarkers[_dbActiveId].openPopup();
+  }
+  renderDbItems(items);
+}
+/* 검색어·상태 필터가 바뀌면 이미 받은 DB 결과에 다시 적용 */
+function refreshDbView(){
+  if(_map&&_dbPoints&&_map.getZoom()<DB_MIN_ZOOM){renderDbOverview(renderDbClusters());return;}
+  if(_dbItems.length)renderDbLayer();
+}
+async function loadDbAeds(session){
+  if(!_map||session!==_mapSession||!_dbLayer)return;
+  if(_map.getZoom()<DB_MIN_ZOOM){
+    _dbSeq++;_dbItems=[];_dbLoadedBounds=null;_dbLayer.clearLayers();_dbMarkers={};
+    if(!_dbPoints){renderDbItems([],"전국 공공 AED 위치를 불러오는 중…");return;}
+    renderDbOverview(renderDbClusters());return;
+  }
+  if(_dbClusterLayer)_dbClusterLayer.clearLayers();
+  const view=_map.getBounds();
+  if(_dbLoadedBounds&&!_dbTruncated&&_dbLoadedBounds.contains(view))return; // 이미 받은 범위 안 (팝업 자동 이동 등)
+  const area=view.pad(0.15); // 조금 넓게 받아 작은 이동에는 다시 조회하지 않음
+  const origin=_userLoc&&area.contains(_userLoc)?_userLoc:_map.getCenter();
+  const seq=++_dbSeq;
+  const qs=new URLSearchParams({bbox:[area.getWest(),area.getSouth(),area.getEast(),area.getNorth()].map(v=>v.toFixed(5)).join(","),limit:String(DB_FETCH_LIMIT),lat:origin.lat.toFixed(6),lng:origin.lng.toFixed(6)});
+  if(!_dbItems.length)renderDbItems([],"공공 AED 데이터베이스 조회 중…");
+  try{
+    const r=await fetch(`/api/aeds?${qs}`,{cache:"no-store"});const j=await r.json();
+    if(seq!==_dbSeq||session!==_mapSession)return;
+    if(!r.ok)throw new Error(j.message||"조회 실패");
+    _dbItems=Array.isArray(j.items)?j.items:[];_dbTruncated=!!j.truncated;_dbLoadedBounds=area;
+    _dbOriginLabel=origin===_userLoc?"내 위치에서":"지도 중심에서";
+    if(_dbActiveId&&!_dbItems.some(a=>String(a.id)===String(_dbActiveId)))_dbActiveId=null;
+    renderDbLayer();
+  }catch(e){if(seq===_dbSeq)renderDbItems([],`공공 AED 데이터베이스를 불러오지 못했습니다. (${e.message})`);}
+}
+async function setupDbLayer(session,hasLocal){
+  const ok=await checkDbConfigured();
+  if(!_map||session!==_mapSession)return;
+  if(!ok){renderDbItems([],"공공 AED 데이터베이스가 서버에 연결되어 있지 않습니다. 서버의 .env 설정을 확인하세요.");return;}
+  _dbLayer=L.layerGroup().addTo(_map);_dbClusterLayer=L.layerGroup().addTo(_map);
+  _map.on("moveend",()=>{clearTimeout(_dbTimer);_dbTimer=setTimeout(()=>loadDbAeds(session),250);});
+  loadDbAeds(session);
+  loadDbPoints().then(()=>{if(_map&&session===_mapSession)loadDbAeds(session);})
+    .catch(e=>{if(_map&&session===_mapSession&&_map.getZoom()<DB_MIN_ZOOM)renderDbItems([],`전국 공공 AED 위치를 불러오지 못했습니다. (${e.message})`);});
+}
+/* 배경지도 제한으로 좌표 지도(오프라인)로 바뀐 경우 안내 */
+function dbStaticFallbackNotice(){
+  resetDbLayerState();
+  checkDbConfigured().then(ok=>{if(ok&&!_map)renderDbItems([],"배경지도 제한으로 공공 AED를 지도에 표시할 수 없습니다. ‘내 위치’ 버튼을 누르면 가까운 공공 AED를 목록으로 안내합니다.");});
+}
+/* 내 위치 기준 가장 가까운 공공 AED (오프라인 지도에서는 목록으로 표시) */
+async function fetchNearestDb(lat,lng){
+  if(!(await checkDbConfigured()))return [];
+  try{
+    const r=await fetch(`/api/aeds/nearest?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}&limit=${_map?1:DB_LIST_LIMIT}`,{cache:"no-store"});const j=await r.json();
+    if(!r.ok)return [];
+    const items=Array.isArray(j.items)?j.items:[];
+    if(!_map){_dbItems=items;_dbTruncated=false;_dbOriginLabel="내 위치에서";renderDbItems(dbVisibleItems());}
+    return items;
+  }catch(e){return [];}
+}
+function locateUser(){
+  if(!navigator.geolocation){toast("이 브라우저는 위치 기능을 지원하지 않습니다.");return;}
+  toast("위치를 확인하는 중…");
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const{latitude:lat,longitude:lng}=pos.coords;
+    _userLoc=window.L&&typeof L.latLng==="function"?L.latLng(lat,lng):{lat,lng};_dbLoadedBounds=null;
+    if(_map){
+      if(_userMarker)_map.removeLayer(_userMarker);
+      _userMarker=L.circleMarker([lat,lng],{radius:9,color:"#2f6bff",fillColor:"#2f6bff",fillOpacity:.9,weight:3}).addTo(_map);
+      _map.setView([lat,lng],Math.max(DB_MIN_ZOOM+2,_map.getZoom()));
+    }else setMapNotice("현재 위치를 확인했습니다. 배경지도 제한으로 가까운 AED를 목록에서 안내합니다.","warn");
+    // 가장 가까운 AED 안내: 관리 등록 기기 + 공공 AED DB 중 실제 거리(m)가 가장 짧은 곳
+    const devices=validMapDevices(Store.listDevices());
+    let near=null,best=Infinity;
+    devices.forEach(d=>{const dist=distanceMeters(lat,lng,Number(d.lat),Number(d.lng));if(dist<best){best=dist;near={name:d.name,dist};}});
+    fetchNearestDb(lat,lng).then(items=>{
+      const a=items[0];
+      if(a&&Number.isFinite(Number(a.distance_m))&&Number(a.distance_m)<best)near={name:a.name,dist:Number(a.distance_m)};
+      if(near)toast(`가장 가까운 AED: ${near.name} (직선 약 ${fmtDist(near.dist)})`);
+      else toast("주변에서 AED를 찾지 못했습니다. 지도를 이동해 확인하세요.");
+    });
+  },err=>{toast("위치 권한이 거부되었습니다. 지도에서 직접 찾아보세요.");},{enableHighAccuracy:true,timeout:8000});
+}
+
+/* ============================================================
+   AED 사용(작동) 신고 — 119 + 관리자에게 위치·사용 알림 (데모 시뮬레이션)
+   실제 문자/119 전송은 2단계 백엔드에서 연동.
+   ============================================================ */
+/* 모바일(전화 가능 환경) 추정: tel: 링크를 지원할 가능성이 높은 환경 */
+function isLikelyPhone(){return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||"");}
+
+function openUseModal(){
+  const devices=Store.listDevices();
+  openModal(`
+    <div class="modal-head"><h2 style="color:var(--danger)">🚨 응급상황 · AED 사용</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+
+    <div style="background:var(--danger-bg);border:1px solid var(--danger-line);border-radius:12px;padding:14px;margin-bottom:14px">
+      <p style="font-size:13.5px;font-weight:700;color:var(--danger);margin-bottom:4px">가장 먼저 119에 신고하세요</p>
+      <p style="font-size:12.5px;color:var(--text-2)">이 앱은 119 신고를 대신하지 않습니다. 아래 버튼으로 <b>직접 119에 전화</b>한 뒤 AED를 사용하세요.</p>
+    </div>
+
+    ${isLikelyPhone()
+      ? `<a class="btn solid block emergency" href="tel:119" id="call119" style="font-size:16px;padding:15px">📞 119 전화 걸기</a>`
+      : `<div class="guide-item urgent"><div class="gi-task"><span class="gi-ico">📞</span><b>지금 전화기로 119에 신고하세요</b></div>
+         <div style="font-size:12.5px;color:var(--text-2);margin-top:4px">이 기기는 전화 연결을 지원하지 않습니다. 주변 사람에게 119 신고를 요청하세요.</div></div>`}
+
+    <div class="gi-lbl" style="margin-top:16px">사용 중인 AED 기록 (선택 · 119 신고와 별개)</div>
+    <div class="field" style="margin-bottom:8px">
+      <select class="control" id="useDevice">
+        <option value="">기기 선택 안 함</option>
+        ${devices.map(d=>`<option value="${d.id}">${esc(d.name)} (${esc(productName(d.model))})</option>`).join("")}
+      </select></div>
+    <p class="muted" style="font-size:11px;margin-bottom:10px">기기를 선택해 '사용 기록'을 남기면, 관리자가 사용 후 점검을 진행하도록 후속 조치가 생성됩니다.
+    <b>관리자 자동 통보(문자·푸시)는 현재 미연동</b>이며, 서버·전송 서비스 연동 시 활성화됩니다.</p>
+    <button class="btn block" id="logUse">사용 기록 남기기 (관리자 점검용)</button>`);
+
+  const logBtn=$("#logUse");
+  if(logBtn)logBtn.addEventListener("click",()=>{
+    const id=$("#useDevice").value;
+    const proceed=(lat,lng)=>{
+      let dev=id?Store.getDevice(id):null;
+      if(!dev&&lat!=null){let best=1e9;Store.listDevices().forEach(d=>{const dist=Math.hypot(d.lat-lat,d.lng-lng);if(dist<best){best=dist;dev=d;}});}
+      const ev=Store.addUsageEvent({
+        deviceId:dev?dev.id:null,deviceName:dev?dev.name:"위치 미확인",address:dev?dev.address:"",
+        lat:lat,lng:lng,
+        call119:isLikelyPhone()?"attempted":"unknown"});
+      closeModal();
+      showUseLogged(ev,dev);
+    };
+    if(navigator.geolocation){
+      toast("위치 확인 중…");
+      navigator.geolocation.getCurrentPosition(
+        pos=>proceed(pos.coords.latitude,pos.coords.longitude),
+        ()=>proceed(null,null),{enableHighAccuracy:true,timeout:6000});
+    }else proceed(null,null);
+  });
+}
+/* 사용 '기록' 완료 화면 — 전송 성공이 아니라 '기록 저장'만 확정적으로 표현 */
+function showUseLogged(ev,dev){
+  openModal(`
+    <div class="modal-head"><h2>📝 사용 기록이 저장되었습니다</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <div class="guide-item">
+      <div class="gi-task"><span class="gi-ico">✅</span><b>로컬에 사용 기록 저장됨</b></div>
+      <div style="font-size:12.5px;color:var(--text-2);margin-top:4px">
+        ${esc(dev?dev.name:"위치 미확인 기기")} · ${fmtTs(ev.ts)}${ev.lat!=null?` · 위치 (${ev.lat.toFixed(4)}, ${ev.lng.toFixed(4)})`:" · 위치 미확인"}</div>
+    </div>
+    <div class="guide-item">
+      <div class="gi-task"><span class="gi-ico">⚙️</span><b>관리자 자동 통보</b> <span class="badge warn" style="margin-left:4px">미연동</span></div>
+      <div style="font-size:12.5px;color:var(--text-2);margin-top:4px">문자·푸시 자동 전송은 서버·전송 서비스 연동 시 제공됩니다. (현재 시연용)</div>
+    </div>
+    <div class="guide-item">
+      <div class="gi-task"><span class="gi-ico">🔁</span><b>후속 조치</b></div>
+      <div style="font-size:12.5px;color:var(--text-2);margin-top:4px">${dev?"이 기기는 '사용 후 점검 필요'로 표시되었습니다. 관리자 대시보드에서 복구 절차를 추적합니다.":"기기를 선택하지 않아 후속 점검 대상이 지정되지 않았습니다."}</div>
+    </div>
+    <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;text-align:center">
+      <p style="font-size:14px;font-weight:700;margin-bottom:6px">지금 해야 할 일</p>
+      <p style="font-size:13px;color:var(--text-2)">AED 음성 안내를 따르며 <b>가슴압박을 멈추지 마세요.</b> 119 구급대가 도착할 때까지 계속합니다.</p>
+    </div>
+    ${isLikelyPhone()?`<a class="btn solid block emergency" href="tel:119" style="margin-top:12px">📞 119 다시 전화</a>`:""}
+    <button class="btn block" style="margin-top:8px" data-learn2>📚 AED 사용법 다시 보기</button>`);
+  const lb=$("#modal").querySelector("[data-learn2]");
+  if(lb)lb.addEventListener("click",()=>{closeModal();go("learn");});
+  toast("사용 기록을 저장했습니다. (관리자 자동 통보는 미연동)");
+}
+window.openUseModal=openUseModal;
+
+/* ============================================================
+   VIEW: 점검 현황 (시민용, 보기 전용)
+   각 AED가 최근에 점검됐는지 시민이 믿고 쓸 수 있게 보여준다.
+   ============================================================ */
+Views.status=function(host){
+  const devices=Store.listDevices();
+  const stat={ok:0,warn:0,danger:0};
+  devices.forEach(d=>stat[deviceStatus(d).level]++);
+  const sorted=devices.slice().sort((a,b)=>{
+    const o={danger:0,warn:1,ok:2};return o[deviceStatus(a).level]-o[deviceStatus(b).level];
+  });
+  host.innerHTML=`
+    <div class="page-head">
+      <div><h1>AED 점검 현황</h1><p>우리 동네 AED가 최근에 점검됐는지 확인하세요. 안심하고 사용할 수 있는 상태를 공개합니다.</p></div>
+      <div class="head-actions"><button class="btn solid" data-go="map">🗺️ 지도에서 보기</button></div>
+    </div>
+    <div class="grid kpi-grid" style="margin-bottom:16px">
+      <div class="card kpi"><div class="k-top"><span>공개 기기</span><span class="k-ico" style="background:rgba(47,107,255,.1);color:var(--accent)">♥</span></div>
+        <div class="k-val">${devices.length}<small> 대</small></div><div class="k-foot">우리 지역 등록 AED</div></div>
+      <div class="card kpi"><div class="k-top"><span>정상 사용 가능</span><span class="k-ico" style="background:var(--ok-bg);color:var(--ok)">✓</span></div>
+        <div class="k-val" style="color:var(--ok)">${stat.ok}<small> 대</small></div><div class="k-foot">점검·유효기간 양호</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 임박</span><span class="k-ico" style="background:var(--warn-bg);color:var(--warn)">!</span></div>
+        <div class="k-val" style="color:var(--warn)">${stat.warn}<small> 대</small></div><div class="k-foot">곧 점검 예정</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 필요</span><span class="k-ico" style="background:var(--danger-bg);color:var(--danger)">✕</span></div>
+        <div class="k-val" style="color:var(--danger)">${stat.danger}<small> 대</small></div><div class="k-foot">관리기관 조치 대기</div></div>
+    </div>
+    <div class="card pad">
+      <div class="page-head" style="margin-bottom:12px"><div><h1 style="font-size:16px">기기별 점검 상태</h1></div>
+        <span class="muted" style="font-size:12px">기준일 ${todayStr()}</span></div>
+      <div class="table-wrap"><table class="table"><thead><tr>
+        <th>설치 장소</th><th>상태</th><th>최근 점검일</th><th>배터리</th><th>패드</th></tr></thead><tbody>
+        ${sorted.map(d=>{const st=deviceStatus(d);const last=Store.lastInspection(d);
+          return `<tr>
+            <td><strong>${esc(d.name)}</strong><br><span class="muted" style="font-size:11px">${esc(d.address)}</span></td>
+            <td>${statusBadge(st,st.code==="normal"?"사용 가능":st.label)}</td>
+            <td>${last?`${last.date}<br><span class="muted" style="font-size:11px">${daysBetween(last.date,todayStr())}일 전</span>`:`<span class="muted">기록 없음</span>`}</td>
+            <td>${citizenExpiry(d.battery_expiry)}</td>
+            <td>${citizenExpiry(d.pad_expiry)}</td>
+          </tr>`;}).join("")}
+      </tbody></table></div>
+      <p class="muted" style="font-size:11px;margin-top:12px">ℹ️ 점검 기록은 설치기관 담당자가 입력합니다. 상태가 '점검 필요'인 기기는 관리기관이 조치 중일 수 있습니다.</p>
+    </div>`;
+  host.querySelector("[data-go]").addEventListener("click",()=>go("map"));
+};
+function citizenExpiry(date){
+  if(!date)return `<span class="muted">-</span>`;
+  const left=daysBetween(todayStr(),date);
+  const cls=left<0?"danger":left<=getAlertDays()?"warn":"ok";
+  const tag=left<0?"만료":left<=getAlertDays()?"임박":"양호";
+  return `<span class="badge ${cls}" style="font-size:10px;padding:2px 7px">${tag}</span>`;
+}
+
+/* ============================================================
+   VIEW: 제품별 사용방법 (시민용) — 나눔테크 AED 5종
+   ============================================================ */
+Views.products=function(host){
+  host.innerHTML=`
+    <div class="page-head">
+      <div><h1>나눔테크 AED 제품별 사용방법</h1><p>설치된 제품을 선택하면 해당 모델의 사용 절차를 안내합니다.</p></div>
+      <div class="head-actions"><button class="btn" data-go="learn">📚 공통 사용법 보기</button></div>
+    </div>
+    <div class="product-grid">
+      ${PRODUCTS.map(p=>`<button class="product-card" data-pid="${p.id}">
+        <div class="pc-img" style="background:${p.color}0d">${productMedia(p)}</div>
+        <div class="pc-body">
+          ${p.tag?`<span class="pc-tag" style="background:${p.color}1a;color:${p.color}">${esc(p.tag)}</span>`:""}
+          <strong>${esc(p.name)}</strong>
+          <p>${esc(p.desc)}</p>
+          <span class="pc-more" style="color:${p.color}">사용방법 보기 →</span>
+        </div>
+      </button>`).join("")}
+    </div>
+    <p class="muted" style="font-size:11px;margin-top:14px">ℹ️ 사용 절차는 AED 공통 표준 절차 기준입니다. 모델별 세부 조작은 각 제품 사용설명서를 따르세요.<br>
+    📷 제품 사진이 없으면 모델별 일러스트로 표시됩니다. <code>images/</code> 폴더에 사진을 넣으면 자동 반영됩니다. (사진 출처: 나눔테크)</p>`;
+  host.querySelector("[data-go]").addEventListener("click",()=>go("learn"));
+  host.querySelectorAll("[data-pid]").forEach(b=>b.addEventListener("click",()=>openProductGuide(b.dataset.pid)));
+};
+function openProductGuide(pid){
+  const p=PRODUCT_MAP[pid];if(!p)return;
+  openModal(`
+    <div class="modal-head"><h2 style="color:${p.color}">${esc(p.name)}</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
+      <div style="width:120px;flex:none;background:${p.color}0d;border-radius:12px;padding:6px">${productMedia(p,{big:true})}</div>
+      <div>${p.tag?`<span class="pc-tag" style="background:${p.color}1a;color:${p.color}">${esc(p.tag)}</span>`:""}
+        <p style="font-size:13px;color:var(--text-2);margin-top:8px">${esc(p.desc)}</p></div>
+    </div>
+    <div class="gi-lbl">제품 정보</div>
+    <ul class="gi-prep" style="font-size:12.5px">
+      <li>제조사: ${esc(p.manufacturer||"미확인")}</li>
+      <li>모델 코드: ${p.model_code?esc(p.model_code):'<span class="muted">미확인</span>'}</li>
+      <li>공식 사용설명서: <span class="muted">미확인 — 제조사 확인 필요</span></li>
+      <li>소모품(배터리·패드) 호환 정보: <span class="muted">미확인 — 제조사 확인 필요</span></li>
+    </ul>
+    ${p.features&&p.features.length?`<div class="gi-lbl" style="margin-top:14px">주요 특징 (관찰 기반)</div>
+    <div class="feat-row">${p.features.map(f=>`<span class="feat">${esc(f)}</span>`).join("")}</div>`:""}
+    <div class="gi-lbl" style="margin-top:14px">사용 절차 (AED 공통 표준)</div>
+    <ol class="prod-steps">${p.steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
+    <div style="background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:10px;padding:11px;margin-top:12px;font-size:11.5px;color:var(--text-2)">
+      ⚠️ 제품 세부 사양·공식 사용설명서·소모품 호환 정보는 <b>공식 자료로 검증되지 않았습니다.</b> 정확한 내용은 제조사에 확인하세요.<br>
+      📞 ${esc(NANOOM_CONTACT.tel)} · ✉️ ${esc(NANOOM_CONTACT.email)} · <a href="${NANOOM_CONTACT.site}" target="_blank" style="color:var(--accent)">제조사 사이트</a>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn block" onclick="closeModal()">닫기</button>
+      <button class="btn solid block" data-learn>📚 단계별 학습 보기</button>
+    </div>`);
+  const lb=$("#modal").querySelector("[data-learn]");
+  if(lb)lb.addEventListener("click",()=>{closeModal();go("learn");});
+}
+window.openProductGuide=openProductGuide;
+
+/* ============================================================
+   VIEW: 사용법 학습 + 퀴즈 (시민용)
+   ============================================================ */
+let _learnIdx=0,_quizMode=false,_quizAnswers=[];
+Views.learn=function(host){
+  _learnIdx=0;_quizMode=false;_quizAnswers=[];
+  renderLearn(host);
+};
+function renderLearn(host){
+  if(_quizMode){renderQuiz(host);return;}
+  const total=LEARN_STEPS.length;const s=LEARN_STEPS[_learnIdx];
+  const segs=LEARN_STEPS.map((_,i)=>`<div class="seg ${i<=_learnIdx?"on":""}"></div>`).join("");
+  host.innerHTML=`
+    <div class="learn-stage">
+      <div class="page-head" style="justify-content:center;text-align:center"><div>
+        <h1>AED 사용법 3분 학습</h1><p>한 단계씩 따라 하면 누구나 응급상황에서 대처할 수 있습니다.</p></div></div>
+      <div class="learn-progress">${segs}</div>
+      <div class="card step-card">
+        <div class="step-ico">${s.ico}</div>
+        <div class="n">${s.n} / 총 ${total}단계</div>
+        <h2>${s.title}</h2>
+        <p>${s.desc}</p>
+      </div>
+      <div class="step-nav">
+        <button class="btn" id="prevStep" ${_learnIdx===0?"disabled":""}>← 이전</button>
+        <button class="btn solid" id="nextStep">${_learnIdx===total-1?"퀴즈 풀기 →":"다음 →"}</button>
+      </div>
+      <p class="muted" style="font-size:11px;text-align:center;margin-top:14px">${esc(LEARN_SOURCE.note)} · 출처/개정일 ${esc(LEARN_SOURCE.rev)} (${esc(LEARN_SOURCE.checked)})<br>실제 응급처치는 최신 공식 지침과 AED 음성 안내를 우선합니다.</p>
+    </div>`;
+  $("#prevStep").addEventListener("click",()=>{if(_learnIdx>0){_learnIdx--;renderLearn(host);}});
+  $("#nextStep").addEventListener("click",()=>{
+    if(_learnIdx<total-1){_learnIdx++;renderLearn(host);}
+    else{_quizMode=true;_quizAnswers=[];renderQuiz(host);}
+  });
+}
+function renderQuiz(host){
+  const quiz=Store.listQuiz();
+  host.innerHTML=`
+    <div class="learn-stage">
+      <div class="page-head" style="justify-content:center;text-align:center"><div>
+        <h1>확인 퀴즈</h1><p>세 문항으로 핵심을 점검해 보세요.</p></div></div>
+      <div id="quizBox">${quiz.map((item,qi)=>`
+        <div class="quiz-q" data-q="${qi}">
+          <h3>Q${qi+1}. ${esc(item.q)}</h3>
+          ${item.opts.map((o,oi)=>`<button class="quiz-opt" data-q="${qi}" data-o="${oi}">${esc(o)}</button>`).join("")}
+        </div>`).join("")}</div>
+      <div id="quizResult"></div>
+      <div class="step-nav">
+        <button class="btn" id="backLearn">← 학습으로</button>
+        <button class="btn solid" id="resetQuiz">다시 풀기</button>
+      </div>
+    </div>`;
+  host.querySelectorAll(".quiz-opt").forEach(btn=>btn.addEventListener("click",()=>{
+    const qi=+btn.dataset.q,oi=+btn.dataset.o;
+    if(_quizAnswers[qi]!=null)return;
+    _quizAnswers[qi]=oi;
+    const correct=quiz[qi].answer;
+    const qEl=host.querySelector(`.quiz-q[data-q="${qi}"]`);
+    qEl.querySelectorAll(".quiz-opt").forEach(b=>{
+      b.classList.add("disabled");
+      const o=+b.dataset.o;
+      if(o===correct)b.classList.add("correct");
+      else if(o===oi)b.classList.add("wrong");
+    });
+    // 정답/오답 모두 해설 표시 (6장: 오답에 설명 제공)
+    if(quiz[qi].explain){
+      const ex=document.createElement("div");
+      ex.className="quiz-explain";
+      ex.innerHTML=`<b>${oi===correct?"✅ 정답":"💡 해설"}</b> ${esc(quiz[qi].explain)}`;
+      qEl.appendChild(ex);
+    }
+    if(_quizAnswers.filter(a=>a!=null).length===quiz.length)showQuizResult(host,quiz);
+  }));
+  $("#backLearn").addEventListener("click",()=>{_quizMode=false;_learnIdx=0;renderLearn(host);});
+  $("#resetQuiz").addEventListener("click",()=>{_quizAnswers=[];renderQuiz(host);});
+}
+function showQuizResult(host,quiz){
+  const score=quiz.reduce((a,item,i)=>a+(_quizAnswers[i]===item.answer?1:0),0);
+  const pass=score===quiz.length;
+  $("#quizResult").innerHTML=`<div class="card pad" style="text-align:center;margin:6px 0 14px;
+    border-color:${pass?"var(--ok-line)":"var(--warn-line)"};background:${pass?"var(--ok-bg)":"var(--warn-bg)"}">
+    <div style="font-size:34px">${pass?"🎉":"💪"}</div>
+    <h2 style="font-size:20px;margin:6px 0">${score} / ${quiz.length} 정답</h2>
+    <p class="muted" style="font-size:13px">${pass?"완벽합니다! 응급상황에서 당황하지 말고 배운 대로 행동하세요.":"다시 학습하고 도전해 보세요. 반복이 생명을 구합니다."}</p>
+  </div>`;
+}
+
+/* ============================================================
+   VIEW: 대시보드 (관리자용 요약)
+   ============================================================ */
+Views.dashboard=function(host){
+  Store.ensureTasksForRisk(); // 위험 상태 기기에 대한 조치 작업 자동 생성
+  const devices=Store.listDevices();
+  const settings=Store.getSettings();
+  const today=todayStr();
+  // 8단계 code별 집계
+  const byCode={};Object.keys(STATUS_DEF).forEach(c=>byCode[c]=0);
+  devices.forEach(d=>{byCode[deviceStatus(d).code]=(byCode[deviceStatus(d).code]||0)+1;});
+  const cnt={
+    total:devices.length,
+    normal:byCode.normal,
+    inspectDue:byCode.inspect_due,
+    overdue:byCode.inspect_overdue,
+    consumable:byCode.battery_due+byCode.pad_due,
+    repairUnusable:byCode.repair+byCode.unusable,
+    postUse:byCode.post_use,
+    unverified:byCode.unverified,
+  };
+  const soon=devicesByUrgency(devices).map(d=>({d,st:deviceStatus(d)})).filter(x=>x.st.level!=="ok");
+  const events=Store.listEvents();
+  const pendingEvents=events.filter(e=>e.recovery!=="done");
+  const tasks=Store.listTasks();
+  const openTasks=tasks.filter(t=>t.status!=="완료").length;
+  // 이번 달 점검 완료율: 이번 달에 1회 이상 점검 기록이 있는 기기 비율
+  const ym=today.slice(0,7);
+  const inspectedThisMonth=devices.filter(d=>(d.inspections||[]).some(i=>String(i.date||"").slice(0,7)===ym)).length;
+  const monthRate=devices.length?Math.round(inspectedThisMonth/devices.length*100):0;
+  // 가장 시급한 항목 문구
+  const topItem=soon[0];
+  const summary=devices.length
+    ? `현재 등록된 AED는 총 ${cnt.total}대이며, 정상 ${cnt.normal}대, 점검 예정 ${cnt.inspectDue}대, 조치 필요 ${cnt.overdue+cnt.repairUnusable+cnt.consumable+cnt.postUse}대입니다.`
+      +(topItem?` 가장 우선 처리할 항목은 '${esc(topItem.d.name)} — ${esc(topItem.st.label)}'이며, 담당자 확인 및 조치가 필요합니다.`:" 현재 즉시 조치가 필요한 항목은 없습니다.")
+    : "등록된 AED가 없습니다. 기기를 등록하면 운영 현황이 집계됩니다.";
+  // 제품(모델)별 집계
+  const byModel={};
+  devices.forEach(d=>{const k=d.model||"미지정";const st=deviceStatus(d);const b=byModel[k]||(byModel[k]={total:0,ok:0,warn:0,danger:0});
+    b.total++;b[st.level]++;});
+  host.innerHTML=`
+    <div class="page-head">
+      <div><h1>AED 운영 대시보드</h1><p>제품별 현황 · 사용 알림 · 조치 우선순위를 한눈에 확인합니다.</p></div>
+      <div class="head-actions"><button class="btn solid" data-go="devices">+ 기기 등록</button></div>
+    </div>
+
+    ${pendingEvents.length?`<div class="card pad alert-banner" style="margin-bottom:16px;border-color:var(--danger-line);background:var(--danger-bg)">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:24px">🚨</span>
+        <div style="flex:1"><b style="font-size:15px;color:var(--danger)">사용 후 점검이 필요한 기록 ${pendingEvents.length}건</b>
+        <p style="font-size:12.5px;color:var(--text-2);margin-top:3px">${esc(pendingEvents[0].deviceName||"위치 미확인")} · ${esc(pendingEvents[0].address||"주소 미확인")} · ${fmtTs(pendingEvents[0].ts)} — 사용 기록이 저장되었습니다. 관리자 자동 통보는 미연동이며 복구 확인이 필요합니다.</p></div>
+        <button class="btn" id="viewEvents">복구 목록 보기</button>
+      </div></div>`:""}
+
+    <div class="card pad" style="margin-bottom:16px;border-left:4px solid var(--brand)">
+      <p style="font-size:13.5px;line-height:1.6">${summary}</p>
+      <p class="muted" style="font-size:11px;margin-top:6px">집계 기준일 ${today} · 상태 판정 기준: 소모품 유효기간·점검주기·최종 점검결과 · ${devices.length?"":"데이터 없음"}</p>
+    </div>
+
+    <div class="grid kpi-grid" style="margin-bottom:16px">
+      <div class="card kpi"><div class="k-top"><span>등록 기기</span><span class="k-ico" style="background:rgba(47,107,255,.1);color:var(--accent)">♥</span></div>
+        <div class="k-val">${cnt.total}<small> 대</small></div><div class="k-foot">전체 관리 대상</div></div>
+      <div class="card kpi"><div class="k-top"><span>정상</span><span class="k-ico" style="background:var(--ok-bg);color:var(--ok)">✓</span></div>
+        <div class="k-val" style="color:var(--ok)">${cnt.normal}<small> 대</small></div><div class="k-foot">사용 가능</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 예정</span><span class="k-ico" style="background:var(--warn-bg);color:var(--warn)">◷</span></div>
+        <div class="k-val" style="color:var(--warn)">${cnt.inspectDue}<small> 대</small></div><div class="k-foot">곧 점검 필요</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 기한 초과</span><span class="k-ico" style="background:var(--danger-bg);color:var(--danger)">!</span></div>
+        <div class="k-val" style="color:var(--danger)">${cnt.overdue}<small> 대</small></div><div class="k-foot">기한 지남</div></div>
+      <div class="card kpi"><div class="k-top"><span>배터리·패드 교체</span><span class="k-ico" style="background:var(--warn-bg);color:var(--warn)">🔋</span></div>
+        <div class="k-val" style="color:var(--warn)">${cnt.consumable}<small> 대</small></div><div class="k-foot">소모품 만료·임박</div></div>
+      <div class="card kpi"><div class="k-top"><span>수리·사용 불가</span><span class="k-ico" style="background:var(--danger-bg);color:var(--danger)">✕</span></div>
+        <div class="k-val" style="color:var(--danger)">${cnt.repairUnusable}<small> 대</small></div><div class="k-foot">사용 전 조치 필수</div></div>
+      <div class="card kpi"><div class="k-top"><span>사용 후 점검</span><span class="k-ico" style="background:var(--danger-bg);color:var(--danger)">🔁</span></div>
+        <div class="k-val" style="color:var(--danger)">${cnt.postUse}<small> 대</small></div><div class="k-foot">복구·재사용 준비 필요</div></div>
+      <div class="card kpi"><div class="k-top"><span>상태 미확인</span><span class="k-ico" style="background:var(--surface-2);color:var(--muted)">?</span></div>
+        <div class="k-val" style="color:var(--muted)">${cnt.unverified}<small> 대</small></div><div class="k-foot">점검 기록 없음·오래됨</div></div>
+      <div class="card kpi"><div class="k-top"><span>미처리 조치 작업</span><span class="k-ico" style="background:rgba(47,107,255,.1);color:var(--accent)">🧰</span></div>
+        <div class="k-val">${openTasks}<small> 건</small></div><div class="k-foot">진행/미처리</div></div>
+      <div class="card kpi"><div class="k-top"><span>이번 달 점검 완료율</span><span class="k-ico" style="background:var(--ok-bg);color:var(--ok)">📈</span></div>
+        <div class="k-val" style="color:${monthRate>=settings.monthlyTarget?"var(--ok)":"var(--warn)"}">${monthRate}<small>%</small></div><div class="k-foot">${inspectedThisMonth}/${cnt.total}대 · 목표 ${settings.monthlyTarget}% · ${ym}</div></div>
+    </div>
+
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 style="font-size:16px">제품(모델)별 현황</h2><span class="muted" style="font-size:12px">회사 제품 라인별 보유·상태</span></div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+        ${Object.entries(byModel).map(([mid,b])=>{const p=PRODUCT_MAP[mid];const color=p?p.color:"#7a879e";
+          return `<div class="model-card" style="border-left:4px solid ${color}">
+            <div class="mc-top"><strong>${esc(productName(mid))}</strong><span class="badge ${b.danger?"danger":b.warn?"warn":"ok"}">${b.total}대</span></div>
+            <div class="mc-stats">
+              <span class="ok">정상 ${b.ok}</span><span class="warn">임박 ${b.warn}</span><span class="danger">조치 ${b.danger}</span>
+            </div>
+            <button class="btn sm block" data-model="${mid}" style="margin-top:10px">이 모델 기기 보기</button>
+          </div>`;}).join("")}
+      </div>
+    </div>
+
+    <div class="card pad">
+      <div class="page-head" style="margin-bottom:12px"><div><h1 style="font-size:16px">조치가 필요한 기기</h1>
+        <p style="font-size:12px">⚡ 가장 시급한 순서로 정렬했습니다. 기기를 누르면 필요한 조치와 준비물을 확인할 수 있습니다.</p></div>
+        <span class="muted" style="font-size:12px">기준일 ${today}</span></div>
+      ${soon.length?`<div class="table-wrap"><table class="table"><thead><tr>
+        <th>순위</th><th>기기</th><th>모델</th><th>위치</th><th>상태</th><th>사유</th><th></th></tr></thead><tbody>
+        ${soon.map(({d,st},i)=>`<tr class="clickable" data-guide="${d.id}">
+          <td><span class="rank ${st.level}">${i+1}</span></td>
+          <td><strong>${esc(d.name)}</strong><br><span class="mono muted" style="font-size:11px">${d.id}</span></td>
+          <td><span class="model-tag" style="--mc:${PRODUCT_MAP[d.model]?PRODUCT_MAP[d.model].color:"#7a879e"}">${esc(productName(d.model))}</span></td>
+          <td>${esc(d.address)}</td>
+          <td>${statusBadge(st)}</td>
+          <td style="font-size:12px">${st.reasons.map(esc).join("<br>")}</td>
+          <td><button class="btn sm" data-guide-btn="${d.id}">조치 안내 →</button></td>
+        </tr>`).join("")}</tbody></table></div>`
+        :`<div class="empty"><div class="ic">✓</div><b>모든 기기 정상</b><p>현재 조치가 필요한 기기가 없습니다.</p></div>`}
+    </div>`;
+  host.querySelector("[data-go]").addEventListener("click",()=>go("devices"));
+  const ve=host.querySelector("#viewEvents");if(ve)ve.addEventListener("click",()=>go("recovery"));
+  host.querySelectorAll("[data-model]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();_deviceFilters.model=b.dataset.model;go("devices");}));
+  host.querySelectorAll("[data-guide],[data-guide-btn]").forEach(el=>el.addEventListener("click",e=>{
+    const id=el.dataset.guide||el.dataset.guideBtn;openActionGuide(id);}));
+};
+function fmtTs(iso){try{return new Date(iso).toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;}}
+
+/* 조치 가이드 모달 — 점검·수리 출동 전 준비물 체크리스트 */
+function openActionGuide(deviceId){
+  const d=Store.getDevice(deviceId);if(!d)return;
+  const st=deviceStatus(d);const guide=actionGuide(d);const p=PRODUCT_MAP[d.model];
+  openModal(`
+    <div class="modal-head"><h2>🧰 조치 안내</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <div style="margin-bottom:14px">
+      <strong style="font-size:15px">${esc(d.name)}</strong>
+      ${statusBadge(st)}
+      <div class="muted" style="font-size:12px;margin-top:4px">${esc(d.address)} · ${esc(productName(d.model))} · 담당 ${esc(d.manager)||"-"} ${esc(d.phone)||""}</div>
+    </div>
+    ${guide.map(g=>`<div class="guide-item ${g.urgent?"urgent":""}">
+      <div class="gi-task"><span class="gi-ico">${g.urgent?"🔴":"🟡"}</span><b>${esc(g.task)}</b></div>
+      <div class="gi-lbl">준비물 / 체크리스트</div>
+      <ul class="gi-prep">${g.prep.map(x=>`<li>☐ ${esc(x)}</li>`).join("")}</ul>
+    </div>`).join("")}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <a class="btn block" href="https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lng}" target="_blank">📍 현장 길찾기</a>
+      <button class="btn solid block" data-ins="${d.id}">점검 기록 작성</button>
+    </div>`);
+  const b=$("#modal").querySelector("[data-ins]");
+  if(b)b.addEventListener("click",()=>{closeModal();openInspectModal(d.id);});
+}
+window.openActionGuide=openActionGuide;
+
+/* 사용 후 복구 전용 화면 */
+let _recoveryFilter="pending";
+const RECOVERY_CHECKS=[
+  ["pads","패드 교체"],["battery","배터리 확인"],["selfTest","자가점검"],["reinstalled","재배치"],["ready","재사용 준비"]
+];
+Views.recovery=function(host){
+  const all=Store.listEvents().sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  const counts={pending:all.filter(e=>e.recovery!=="done").length,done:all.filter(e=>e.recovery==="done").length,all:all.length};
+  const events=_recoveryFilter==="all"?all:all.filter(e=>(_recoveryFilter==="done")===(e.recovery==="done"));
+  host.innerHTML=`
+    <div class="page-head"><div><h1>사용 후 복구</h1><p>AED 사용 기록의 패드·배터리·자가점검·재배치·재사용 준비를 확인합니다.</p></div><div class="head-actions"><button class="btn" id="usageExport">⬇ 사용이력 CSV</button><button class="btn solid" id="adminUsageAdd">+ 사용 기록 등록</button></div></div>
+    <div class="notice-box" style="margin-bottom:14px"><b>알림 연동 상태:</b> 시민의 사용 기록은 현재 브라우저에만 저장됩니다. 관리자 문자·푸시 등 실제 알림 전송은 <b>미연동</b>입니다.</div>
+    <div class="filter-row">
+      <button class="filter-chip ${_recoveryFilter==="pending"?"on":""}" data-rf="pending">점검 필요 ${counts.pending}</button>
+      <button class="filter-chip ${_recoveryFilter==="done"?"on":""}" data-rf="done">복구 완료 ${counts.done}</button>
+      <button class="filter-chip ${_recoveryFilter==="all"?"on":""}" data-rf="all">전체 ${counts.all}</button>
+    </div>
+    <div class="card pad">${events.length?`<div class="table-wrap"><table class="table"><thead><tr><th>사용 일시</th><th>기기</th><th>위치</th><th>119 통화</th><th>관리자 통보</th><th>복구 상태</th><th></th></tr></thead><tbody>
+      ${events.map(e=>{const done=e.recovery==="done";return `<tr><td><strong>${fmtTs(e.ts)}</strong><br><span class="mono muted" style="font-size:10px">${esc(e.id)}</span></td><td>${esc(e.deviceName||"기기 미지정")}</td><td>${esc(e.address||"주소 미확인")}${e.lat!=null?`<br><a href="https://www.google.com/maps?q=${e.lat},${e.lng}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)">지도 보기 →</a>`:""}</td><td><span class="badge ${e.call119==="attempted"?"info":"neutral"}">${e.call119==="attempted"?"전화 시도":"상태 미확인"}</span></td><td><span class="badge warn">미연동</span></td><td><span class="badge ${done?"ok":"danger"}">${done?"복구 완료":"점검 필요"}</span>${done&&e.recoveredAt?`<br><span class="muted" style="font-size:10px">${fmtTs(e.recoveredAt)} · ${esc(e.recoveredBy||"담당자 미기입")}</span>`:""}</td><td><button class="btn sm ${done?"":"solid"}" data-recovery="${e.id}">${done?"복구 내역":"복구 완료 처리"}</button></td></tr>`;}).join("")}
+    </tbody></table></div>`:`<div class="empty"><div class="ic">✓</div><b>해당 복구 기록이 없습니다</b><p>필터를 바꾸거나 새 사용 기록이 등록될 때까지 기다려 주세요.</p></div>`}</div>`;
+  host.querySelectorAll("[data-rf]").forEach(b=>b.addEventListener("click",()=>{_recoveryFilter=b.dataset.rf;go("recovery");}));
+  host.querySelectorAll("[data-recovery]").forEach(b=>b.addEventListener("click",()=>openRecoveryModal(b.dataset.recovery)));
+  $("#adminUsageAdd").addEventListener("click",openAdminUsageRecord);
+  $("#usageExport").addEventListener("click",exportUsageCsv);
+};
+function openAdminUsageRecord(){
+  if(!adminUnlocked){go("recovery");return;}
+  const devices=Store.listDevices();if(!devices.length){toast("먼저 AED 기기를 등록하세요.");go("devices");return;}
+  const now=new Date(),local=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}T${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  openModal(`<div class="modal-head"><h2>📝 AED 사용 기록 등록</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <div class="notice-box" style="margin-bottom:12px"><b>내부 기록 기능:</b> 이 입력은 119 신고나 관리자 문자·푸시를 전송하지 않습니다. 실제 신고·알림 처리 상태와 구분해 기록하세요.</div>
+    <form id="adminUsageForm"><div class="field"><label>대상 기기 *</label><select class="control" name="deviceId" required>${devices.map(d=>`<option value="${d.id}">${esc(d.name)} (${esc(d.id)})</option>`).join("")}</select></div>
+    <div class="field"><label>사용 일시 *</label><input class="control" type="datetime-local" name="usedAt" required value="${local}"></div>
+    <div class="field"><label>현장 메모</label><textarea class="control" name="note" rows="3" placeholder="사용 상황, 확인된 소모품 상태 등"></textarea></div>
+    <button class="btn solid block" type="submit">사용 기록 저장 · 복구 작업 생성</button></form>`);
+  $("#adminUsageForm").addEventListener("submit",e=>{e.preventDefault();const f=new FormData(e.currentTarget),d=Store.getDevice(f.get("deviceId"));if(!d){toast("대상 기기를 찾을 수 없습니다.");return;}Store.addUsageEvent({ts:f.get("usedAt"),deviceId:d.id,deviceName:d.name,address:d.address,lat:d.lat,lng:d.lng,call119:"unknown",note:f.get("note")});closeModal();toast("내부 사용 기록과 사용 후 복구 작업을 생성했습니다. 실제 알림은 전송되지 않았습니다.");go("recovery");});
+}
+window.openAdminUsageRecord=openAdminUsageRecord;
+function openRecoveryModal(eventId){
+  if(!adminUnlocked){go("recovery");return;}const e=Store.getEvent(eventId);if(!e)return;
+  if(e.recovery==="done"){
+    const checked=RECOVERY_CHECKS.filter(([key])=>e.checks&&e.checks[key]).map(([,label])=>label);
+    openModal(`<div class="modal-head"><h2>✅ 복구 완료 내역</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div><div class="detail-grid"><div class="detail-cell"><small>기기</small><b>${esc(e.deviceName||"기기 미지정")}</b></div><div class="detail-cell"><small>완료 일시</small><b>${fmtTs(e.recoveredAt)}</b></div><div class="detail-cell"><small>담당자</small><b>${esc(e.recoveredBy||"-")}</b></div><div class="detail-cell"><small>완료 항목</small><b>${esc(checked.join(", ")||"-")}</b></div></div><div class="gi-lbl">메모</div><p style="font-size:13px">${esc(e.recoveryMemo||"메모 없음")}</p>${e.recoveryPhoto?`<img src="${e.recoveryPhoto}" alt="복구 증빙 사진" style="width:100%;max-height:280px;object-fit:contain;border-radius:10px;margin-top:12px">`:""}`);return;
+  }
+  openModal(`<div class="modal-head"><h2>🔁 사용 후 복구 완료</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div><p style="font-size:13px;margin-bottom:10px"><b>${esc(e.deviceName||"기기 미지정")}</b> · ${fmtTs(e.ts)}</p><p class="muted" style="font-size:11px;margin-bottom:10px">실제 관리자 알림 전송 완료를 의미하지 않습니다. 현장 복구 사항을 확인해 기록합니다.</p><form id="recoveryForm"><div class="check-grid">${RECOVERY_CHECKS.map(([key,label])=>`<label class="check-item"><input type="checkbox" name="${key}" required><span><b>${label}</b><br><small class="muted">현장에서 확인 완료</small></span></label>`).join("")}</div><div class="field"><label>담당자 *</label><input class="control" name="by" required placeholder="이름 또는 부서"></div><div class="field"><label>메모</label><textarea class="control" name="memo" rows="3" placeholder="교체 부품, 자가점검 결과 등"></textarea></div><div class="field"><label>증빙 사진 (선택, 이미지 5MB 이하)</label><input class="control" type="file" name="photo" accept="image/*"></div><button class="btn solid block" type="submit">모든 항목 확인 · 복구 완료</button></form>`);
+  $("#recoveryForm").addEventListener("submit",async ev=>{ev.preventDefault();const f=new FormData(ev.currentTarget);let photo=null;const file=f.get("photo");if(file&&file.size){try{photo=await fileToDataUrl(file);}catch(err){toast(err.message||"사진 처리 실패");return;}}const checks={};RECOVERY_CHECKS.forEach(([key])=>checks[key]=f.get(key)==="on");if(Object.values(checks).some(v=>!v)){toast("모든 복구 항목을 확인하세요.");return;}try{Store.completeRecovery(eventId,{by:f.get("by"),memo:f.get("memo"),checks,photo});closeModal();toast("사용 후 복구를 완료하고 연결 작업을 닫았습니다.");go("recovery");}catch(err){toast(err.message||"복구 저장 실패");}});
+}
+function openEventsModal(){go("recovery");}
+window.openEventsModal=openEventsModal;window.openRecoveryModal=openRecoveryModal;
+
+/* ============================================================
+   VIEW: 기기 관리 (관리자용)
+   ============================================================ */
+let _deviceFilters={query:"",model:"",status:"",source:""};
+Views.devices=function(host){
+  const all=Store.listDevices();const modelCounts={};all.forEach(d=>modelCounts[d.model||""]=(modelCounts[d.model||""]||0)+1);
+  const chips=`<button class="filter-chip ${_deviceFilters.model===""?"on":""}" data-filter="">전체 ${all.length}</button>`+PRODUCTS.filter(p=>modelCounts[p.id]).map(p=>`<button class="filter-chip ${_deviceFilters.model===p.id?"on":""}" data-filter="${p.id}" style="--mc:${p.color}">${esc(p.name)} ${modelCounts[p.id]}</button>`).join("");
+  host.innerHTML=`
+    <div class="page-head"><div><h1>기기 관리</h1><p>AED를 검색·필터링하고 배터리·패드 유효기간을 관리합니다. 결과는 시급한 순으로 정렬됩니다.</p></div><div class="head-actions"><button class="btn" id="csvBtn">📥 CSV 일괄 등록</button><input type="file" id="csvFile" accept=".csv" style="display:none"><button class="btn solid" id="addBtn">+ AED 등록</button></div></div>
+    <div class="filter-panel">
+      <input class="control" id="deviceSearch" value="${esc(_deviceFilters.query)}" placeholder="장소·주소·담당자·모델 검색" aria-label="기기 검색">
+      <select class="control" id="deviceModel" aria-label="모델 필터"><option value="">모든 모델</option>${PRODUCTS.map(p=>`<option value="${p.id}" ${_deviceFilters.model===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}</select>
+      <select class="control" id="deviceStatus" aria-label="상태 필터"><option value="">모든 상태</option>${Object.entries(STATUS_DEF).map(([code,x])=>`<option value="${code}" ${_deviceFilters.status===code?"selected":""}>${x.label}</option>`).join("")}</select>
+      <select class="control" id="deviceSource" aria-label="출처 필터"><option value="">모든 출처</option><option value="manual" ${_deviceFilters.source==="manual"?"selected":""}>직접 입력</option><option value="csv" ${_deviceFilters.source==="csv"?"selected":""}>CSV 등록</option></select>
+    </div><div class="filter-row">${chips}</div><div class="filter-summary" id="deviceCount"></div><div class="card pad" id="deviceResults"></div>`;
+  const renderResults=()=>{
+    const devices=devicesByUrgency(all.filter(d=>(!normalizeSearch(_deviceFilters.query)||deviceSearchText(d).includes(normalizeSearch(_deviceFilters.query)))&&(!_deviceFilters.model||d.model===_deviceFilters.model)&&(!_deviceFilters.status||deviceStatus(d).code===_deviceFilters.status)&&(!_deviceFilters.source||d.source===_deviceFilters.source)));
+    host.querySelectorAll("[data-filter]").forEach(b=>b.classList.toggle("on",b.dataset.filter===_deviceFilters.model));
+    $("#deviceCount").textContent=`검색 결과 ${devices.length}대 / 전체 ${all.length}대 · 시급순`;
+    $("#deviceResults").innerHTML=devices.length?`<div class="table-wrap"><table class="table"><thead><tr><th>기기</th><th>모델</th><th>위치</th><th>배터리 만료</th><th>패드 만료</th><th>다음 점검</th><th>상태</th><th></th></tr></thead><tbody>${devices.map(d=>{const st=deviceStatus(d);return `<tr><td><strong>${esc(d.name)}</strong><br><span class="mono muted" style="font-size:11px">${d.id}</span></td><td><span class="model-tag" style="--mc:${PRODUCT_MAP[d.model]?PRODUCT_MAP[d.model].color:"#7a879e"}">${esc(productName(d.model))}</span></td><td>${esc(d.address)}<br><span class="muted" style="font-size:11px">${esc(d.manager)} ${esc(d.phone)}</span></td><td>${expiryCell(d.battery_expiry)}</td><td>${expiryCell(d.pad_expiry)}</td><td>${Store.nextInspectionDate(d)}</td><td>${statusBadge(st)}</td><td style="white-space:nowrap"><button class="btn sm" data-detail="${d.id}">상세</button><button class="btn sm" data-guide-btn="${d.id}">조치</button><button class="btn sm" data-inspect="${d.id}">점검</button><button class="btn sm" data-edit="${d.id}">수정</button><button class="btn sm ghost" data-del="${d.id}" style="color:var(--danger)">삭제</button></td></tr>`;}).join("")}</tbody></table></div>`:`<div class="empty"><div class="ic">🔍</div><b>조건에 맞는 기기가 없습니다</b><p>검색어나 필터를 변경하세요.</p></div>`;
+    const box=$("#deviceResults");box.querySelectorAll("[data-detail]").forEach(b=>b.addEventListener("click",()=>openDeviceDetail(b.dataset.detail)));box.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openDeviceModal(b.dataset.edit)));box.querySelectorAll("[data-inspect]").forEach(b=>b.addEventListener("click",()=>openInspectModal(b.dataset.inspect)));box.querySelectorAll("[data-guide-btn]").forEach(b=>b.addEventListener("click",()=>openActionGuide(b.dataset.guideBtn)));box.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{const d=Store.getDevice(b.dataset.del);if(d&&confirm(`'${d.name}' 기기를 삭제할까요? 점검 이력도 함께 삭제됩니다.`)){Store.removeDevice(b.dataset.del);toast("삭제했습니다.");go("devices");}}));
+  };
+  $("#addBtn").addEventListener("click",()=>openDeviceModal(null));$("#csvBtn").addEventListener("click",openCsvHelp);
+  [["deviceSearch","query"],["deviceModel","model"],["deviceStatus","status"],["deviceSource","source"]].forEach(([id,key])=>{$("#"+id).addEventListener("input",e=>{_deviceFilters[key]=e.target.value;renderResults();});$("#"+id).addEventListener("change",e=>{_deviceFilters[key]=e.target.value;renderResults();});});
+  host.querySelectorAll("[data-filter]").forEach(b=>b.addEventListener("click",()=>{_deviceFilters.model=b.dataset.filter;go("devices");}));renderResults();
+};
+function expiryCell(date){
+  if(!date)return `<span class="muted">미입력</span>`;
+  const left=daysBetween(todayStr(),date);
+  const cls=left<0?"danger":left<=getAlertDays()?"warn":"ok";
+  const tag=left<0?`만료 ${-left}일`:`D-${left}`;
+  return `${date}<br><span class="badge ${cls}" style="font-size:10px;padding:2px 7px">${tag}</span>`;
+}
+
+function openDeviceDetail(id){
+  const d=Store.getDevice(id);if(!d){toast("기기 정보를 찾을 수 없습니다.");return;}const st=deviceStatus(d),last=Store.lastInspection(d),next=Store.nextInspectionDate(d);
+  const inspections=(d.inspections||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const tasks=Store.listTasks().filter(t=>t.deviceId===id).sort((a,b)=>String(b.updated||b.created).localeCompare(String(a.updated||a.created)));
+  const events=Store.listEvents().filter(e=>e.deviceId===id).sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  const sourceLabel={manual:"직접 입력",csv:"CSV 등록",public:"공공데이터"}[d.source]||d.source||"미확인";
+  openModal(`<div class="modal-head"><h2>♥ AED 상세 정보</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px"><div><strong style="font-size:17px">${esc(d.name)}</strong><div class="mono muted" style="font-size:10px">${esc(d.id)}</div></div>${statusBadge(st)}</div>
+    <div class="detail-grid"><div class="detail-cell"><small>주소</small><b>${esc(d.address)||"미확인"}</b></div><div class="detail-cell"><small>상세 설치 위치</small><b>${esc([d.building,d.floor,d.spot].filter(Boolean).join(" "))||"미확인"}</b></div><div class="detail-cell"><small>모델</small><b>${esc(productName(d.model))}</b></div><div class="detail-cell"><small>운영·출입</small><b>${esc([d.hours,d.access].filter(Boolean).join(" · "))||"미확인"}</b></div><div class="detail-cell"><small>담당자</small><b>${esc([d.manager,d.phone].filter(Boolean).join(" · "))||"미확인"}</b></div><div class="detail-cell"><small>출처</small><b>${esc(sourceLabel)}${d.source_maker||d.source_model?` · ${esc([d.source_maker,d.source_model].filter(Boolean).join(" "))}`:""}</b></div><div class="detail-cell"><small>최근 점검</small><b>${last?`${last.date} · ${esc(last.result)}`:"기록 없음"}</b></div><div class="detail-cell"><small>다음 점검 예정</small><b>${next}</b></div></div>
+    <div class="gi-lbl">상태 근거 · 기준일 ${esc(st.asOf||"미확인")}</div><div class="guide-item ${st.level==="danger"?"urgent":""}"><b>${esc(st.label)}</b><ul class="gi-prep" style="margin-top:6px">${st.reasons.length?st.reasons.map(r=>`<li>• ${esc(r)}</li>`).join(""):`<li>• ${esc(st.basis)} 기준 정상 범위</li>`}</ul></div>
+    <div class="gi-lbl">점검 타임라인 (${inspections.length})</div><div class="timeline">${inspections.length?inspections.map(i=>`<div class="tl-item"><time>${esc(i.date)}</time><h5>${esc(i.result)} · ${esc(i.inspector||"점검자 미기입")}</h5>${i.memo?`<p>${esc(i.memo)}</p>`:""}</div>`).join(""):`<p class="muted" style="font-size:12px">점검 기록 없음</p>`}</div>
+    <div class="gi-lbl">연결 조치작업 (${tasks.length})</div>${tasks.length?tasks.map(t=>`<div class="guide-item"><div class="gi-task"><b>${esc(t.title)}</b><span class="badge ${t.status==="완료"?"ok":"warn"}">${esc(t.status)}</span></div><div class="muted" style="font-size:11px;margin-top:4px">${esc(t.reason||"")} · 담당 ${esc(t.assignee||"미지정")}</div></div>`).join(""):`<p class="muted" style="font-size:12px">연결된 작업 없음</p>`}
+    <div class="gi-lbl">사용 / 복구 이벤트 (${events.length})</div>${events.length?events.map(e=>`<div class="guide-item ${e.recovery==="done"?"":"urgent"}"><div class="gi-task"><b>${fmtTs(e.ts)}</b><span class="badge ${e.recovery==="done"?"ok":"danger"}">${e.recovery==="done"?"복구 완료":"점검 필요"}</span></div>${e.recoveredAt?`<div class="muted" style="font-size:11px">${fmtTs(e.recoveredAt)} · ${esc(e.recoveredBy||"")}</div>`:""}</div>`).join(""):`<p class="muted" style="font-size:12px">사용 기록 없음</p>`}
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-detail-product>📦 제품 사용법</button>${adminUnlocked?`<button class="btn" data-detail-edit>수정</button><button class="btn" data-detail-inspect>점검</button><button class="btn solid" data-detail-guide>조치 안내</button>`:""}</div>`);
+  const modal=$("#modal");const product=modal.querySelector("[data-detail-product]");if(product)product.addEventListener("click",()=>{if(d.model&&PRODUCT_MAP[d.model])openProductGuide(d.model);else toast("연결된 제품 정보가 없습니다.");});const edit=modal.querySelector("[data-detail-edit]");if(edit)edit.addEventListener("click",()=>openDeviceModal(id));const inspect=modal.querySelector("[data-detail-inspect]");if(inspect)inspect.addEventListener("click",()=>openInspectModal(id));const guide=modal.querySelector("[data-detail-guide]");if(guide)guide.addEventListener("click",()=>openActionGuide(id));
+}
+window.openDeviceDetail=openDeviceDetail;
+
+function openDeviceModal(id){
+  const d=id?Store.getDevice(id):null;
+  openModal(`
+    <div class="modal-head"><h2>${d?"기기 수정":"AED 등록"}</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <form id="deviceForm">
+      <div class="field"><label>설치 장소명 *</label><input class="control" name="name" required value="${d?esc(d.name):""}" placeholder="예: 조선이공대 본관 1층 로비"></div>
+      <div class="field"><label>주소 *</label><input class="control" name="address" required value="${d?esc(d.address):""}" placeholder="광주 동구 ..."></div>
+      <div class="field"><label>제품 모델 *</label>
+        <select class="control" name="model" required>
+          <option value="">모델 선택</option>
+          ${PRODUCTS.map(p=>`<option value="${p.id}" ${d&&d.model===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
+        </select></div>
+      <div class="form-grid">
+        <div class="field"><label>건물명</label><input class="control" name="building" value="${d?esc(d.building||""):""}" placeholder="예: 본관"></div>
+        <div class="field"><label>층수</label><input class="control" name="floor" value="${d?esc(d.floor||""):""}" placeholder="예: 1층"></div>
+        <div class="field wide"><label>상세 설치 위치</label><input class="control" name="spot" value="${d?esc(d.spot||""):""}" placeholder="예: 로비 안내데스크 옆 벽면"></div>
+        <div class="field"><label>운영시간</label><input class="control" name="hours" value="${d?esc(d.hours||""):""}" placeholder="예: 평일 09-18시 / 미확인"></div>
+        <div class="field"><label>출입 가능 여부</label><input class="control" name="access" value="${d?esc(d.access||""):""}" placeholder="예: 24시간 개방 / 미확인"></div>
+        <div class="field"><label>위도(lat) *</label><input class="control" name="lat" required value="${d?d.lat:""}" placeholder="33~39"></div>
+        <div class="field"><label>경도(lng) *</label><input class="control" name="lng" required value="${d?d.lng:""}" placeholder="124~132"></div>
+        <div class="field"><label>담당자</label><input class="control" name="manager" value="${d?esc(d.manager):""}"></div>
+        <div class="field"><label>연락처</label><input class="control" name="phone" value="${d?esc(d.phone):""}"></div>
+        <div class="field"><label>배터리 만료일</label><input class="control" type="date" name="battery_expiry" value="${d?d.battery_expiry:""}"></div>
+        <div class="field"><label>패드 만료일</label><input class="control" type="date" name="pad_expiry" value="${d?d.pad_expiry:""}"></div>
+        <div class="field"><label>설치일</label><input class="control" type="date" name="install_date" value="${d?d.install_date:todayStr()}"></div>
+        <div class="field"><label>점검 주기(일)</label><input class="control" type="number" name="inspect_cycle_days" min="1" value="${d?d.inspect_cycle_days:180}"></div>
+      </div>
+      <p class="muted" style="font-size:11px;margin-bottom:10px">💡 운영시간·출입 여부 등 확인되지 않은 항목은 '미확인'으로 두세요. 좌표는 대한민국 범위(위도 33~39, 경도 124~132)만 허용됩니다.</p>
+      <button class="btn solid block" type="submit">${d?"수정 저장":"등록"}</button>
+    </form>`);
+  $("#deviceForm").addEventListener("submit",e=>{
+    e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
+    const err=validateCoords(f.lat,f.lng);
+    if(err){toast(err);return;}
+    if(d)Store.updateDevice(d.id,{...f,lat:+f.lat,lng:+f.lng,inspect_cycle_days:+f.inspect_cycle_days});
+    else Store.addDevice({...f,source:"manual"});
+    closeModal();toast(d?"기기 정보를 수정했습니다.":"새 AED를 등록했습니다.");go("devices");
+  });
+}
+/* 좌표 유효성 검사 — 대한민국 범위 */
+function validateCoords(lat,lng){
+  const la=+lat,ln=+lng;
+  if(isNaN(la)||isNaN(ln))return "위도·경도를 숫자로 입력하세요.";
+  if(la<33||la>39)return "위도는 33~39 범위여야 합니다. (대한민국)";
+  if(ln<124||ln>132)return "경도는 124~132 범위여야 합니다. (대한민국)";
+  return null;
+}
+
+/* CSV 일괄 등록 안내 + 처리 */
+function openCsvHelp(){
+  openModal(`
+    <div class="modal-head"><h2>📥 CSV 일괄 등록</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">아래 머리글(헤더)을 가진 CSV 파일을 올리면 기기를 한 번에 등록합니다. 필수: <b>name, address, lat, lng</b>.</p>
+    <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11.5px;overflow-x:auto;margin-bottom:12px">
+      <code class="mono">name,address,model,building,floor,spot,lat,lng,manager,phone,battery_expiry,pad_expiry,install_date,inspect_cycle_days,hours,access</code></div>
+    <p class="muted" style="font-size:11px;margin-bottom:12px">· 중복 좌표/주소, 잘못된 좌표, 필수값 누락은 자동으로 검증해 건너뜁니다.<br>· model은 ${PRODUCTS.map(p=>p.id).join(", ")} 중 하나. 미확인이면 비워두세요.</p>
+    <button class="btn solid block" id="pickCsv">CSV 파일 선택</button>`);
+  $("#pickCsv").addEventListener("click",()=>{const inp=$("#csvFile");inp.value="";inp.onchange=handleCsvUpload;inp.click();});
+}
+async function handleCsvUpload(e){
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  try{
+    const text=await file.text();
+    const {records}=parseCsvSimple(text);
+    if(!records.length){toast("CSV에 데이터 행이 없습니다.");return;}
+    const seen=Store.listDevices().slice();
+    const accepted=[];let skipped=0;const errors=[];
+    records.forEach((r,i)=>{
+      const name=(r.name||"").trim(),address=(r.address||"").trim();
+      if(!name||!address||r.lat===undefined||r.lng===undefined){skipped++;errors.push(`${i+2}행: 필수값 누락`);return;}
+      const err=validateCoords(r.lat,r.lng);if(err){skipped++;errors.push(`${i+2}행: ${err}`);return;}
+      const candidate={...r,name,address,lat:+r.lat,lng:+r.lng,source:"csv"};
+      const dup=seen.some(x=>(normalizeSearch(x.name)===normalizeSearch(name)&&normalizeSearch(x.address)===normalizeSearch(address))||(Math.abs(Number(x.lat)-candidate.lat)<0.0001&&Math.abs(Number(x.lng)-candidate.lng)<0.0001));
+      if(dup){skipped++;errors.push(`${i+2}행: 중복 기기(${name})`);return;}
+      seen.push(candidate);accepted.push(candidate);
+    });
+    const added=Store.addDevices(accepted).length;
+    closeModal();toast(`등록 ${added}건 · 건너뜀 ${skipped}건`);
+    if(errors.length)console.warn("CSV 등록 경고:\n"+errors.join("\n"));
+    go("devices");
+  }catch(err){toast("CSV 읽기 실패: "+(err.message||err));}
+}
+/* 간단 CSV 파서 (따옴표 지원) */
+function parseCsvSimple(text){
+  text=text.replace(/^\ufeff/,"");
+  const rows=[];let i=0,field="",row=[],q=false;
+  const pf=()=>{row.push(field);field="";};const pr=()=>{rows.push(row);row=[];};
+  while(i<text.length){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){field+='"';i++;}else q=false;}else field+=c;}
+    else{if(c==='"')q=true;else if(c===",")pf();else if(c==="\r"){}else if(c==="\n"){pf();pr();}else field+=c;}
+    i++;}
+  if(field.length||row.length){pf();pr();}
+  if(!rows.length)return {headers:[],records:[]};
+  const headers=rows[0].map(h=>String(h).trim());
+  const records=rows.slice(1).filter(r=>r.some(c=>String(c).trim()!=="")).map(r=>{
+    const o={};headers.forEach((h,idx)=>o[h]=r[idx]!==undefined?String(r[idx]).trim():"");return o;});
+  return {headers,records};
+}
+
+/* ============================================================
+   VIEW: 점검 이력 (관리자용)
+   ============================================================ */
+let _inspectionFilters={query:"",result:"",month:""};
+Views.inspection=function(host){
+  const devices=Store.listDevices();const allRows=[];devices.forEach(d=>(d.inspections||[]).forEach(ins=>allRows.push({d,ins})));allRows.sort((a,b)=>String(b.ins.date).localeCompare(String(a.ins.date)));
+  const resultOptions=[...new Set(allRows.map(x=>x.ins.result).filter(Boolean))];
+  host.innerHTML=`
+    <div class="page-head"><div><h1>점검 이력</h1><p>점검일·상태·메모·사진을 기록하면 다음 점검일이 자동으로 계산됩니다.</p></div><div class="head-actions"><button class="btn solid" id="newInspect">+ 점검 기록</button></div></div>
+    <div class="filter-panel"><input class="control" id="inspectionSearch" value="${esc(_inspectionFilters.query)}" placeholder="기기·주소·점검자·메모 검색" aria-label="점검 이력 검색"><select class="control" id="inspectionResult" aria-label="점검 결과 필터"><option value="">모든 결과</option>${resultOptions.map(r=>`<option value="${esc(r)}" ${_inspectionFilters.result===r?"selected":""}>${esc(r)}</option>`).join("")}</select><input class="control" id="inspectionMonth" type="month" value="${esc(_inspectionFilters.month)}" aria-label="점검 월 필터"><button class="btn" id="inspectionReset">필터 초기화</button></div><div class="filter-summary" id="inspectionCount"></div><div class="card pad" id="inspectionResults"></div>`;
+  const renderRows=()=>{const rows=allRows.filter(({d,ins})=>(!_inspectionFilters.query||matchesSearch([deviceSearchText(d),ins.inspector,ins.memo,ins.result],_inspectionFilters.query))&&(!_inspectionFilters.result||ins.result===_inspectionFilters.result)&&(!_inspectionFilters.month||String(ins.date).slice(0,7)===_inspectionFilters.month));$("#inspectionCount").textContent=`검색 결과 ${rows.length}건 / 전체 ${allRows.length}건`;$("#inspectionResults").innerHTML=rows.length?`<div class="table-wrap"><table class="table"><thead><tr><th>점검일</th><th>기기</th><th>결과</th><th>점검자</th><th>메모</th><th>사진</th><th></th></tr></thead><tbody>${rows.map(({d,ins})=>`<tr><td><strong>${esc(ins.date)}</strong></td><td>${esc(d.name)}<br><span class="mono muted" style="font-size:11px">${d.id}</span></td><td><span class="badge ${ins.result==="정상"?"ok":resultToCode(ins.result)?"danger":"warn"}">${esc(ins.result)}</span></td><td>${esc(ins.inspector)||"-"}</td><td style="max-width:260px;font-size:12px">${esc(ins.memo)||"-"}</td><td>${ins.photo?`<img src="${ins.photo}" alt="점검 사진" style="width:48px;height:48px;object-fit:cover;border-radius:8px;cursor:pointer" data-photo="${encodeURIComponent(ins.photo)}">`:`<span class="muted">-</span>`}</td><td><button class="btn sm" data-detail="${d.id}">기기 상세</button></td></tr>`).join("")}</tbody></table></div>`:`<div class="empty"><div class="ic">✅</div><b>조건에 맞는 점검 기록이 없습니다</b><p>필터를 변경하거나 첫 점검을 등록하세요.</p></div>`;const box=$("#inspectionResults");box.querySelectorAll("[data-photo]").forEach(img=>img.addEventListener("click",()=>openModal(`<div class="modal-head"><h2>점검 사진</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div><img src="${decodeURIComponent(img.dataset.photo)}" alt="점검 원본 사진" style="width:100%;border-radius:12px">`)));box.querySelectorAll("[data-detail]").forEach(b=>b.addEventListener("click",()=>openDeviceDetail(b.dataset.detail)));};
+  $("#newInspect").addEventListener("click",()=>openInspectModal(null));[["inspectionSearch","query"],["inspectionResult","result"],["inspectionMonth","month"]].forEach(([id,key])=>{$("#"+id).addEventListener("input",e=>{_inspectionFilters[key]=e.target.value;renderRows();});$("#"+id).addEventListener("change",e=>{_inspectionFilters[key]=e.target.value;renderRows();});});$("#inspectionReset").addEventListener("click",()=>{_inspectionFilters={query:"",result:"",month:""};go("inspection");});renderRows();
+};
+
+function openInspectModal(deviceId){
+  const devices=Store.listDevices();
+  if(!devices.length){toast("먼저 기기를 등록하세요.");go("devices");return;}
+  const first=devices.find(d=>d.id===deviceId)||devices[0];
+  openModal(`
+    <div class="modal-head"><h2>✅ 점검 기록</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <form id="inspectForm">
+      <div class="field"><label>대상 기기 *</label>
+        <select class="control" name="deviceId" id="insDevice" required>
+          ${devices.map(d=>`<option value="${d.id}" ${d.id===first.id?"selected":""}>${esc(d.name)} (${d.id})</option>`).join("")}
+        </select></div>
+      <div class="form-grid">
+        <div class="field"><label>점검일 *</label><input class="control" type="date" name="date" id="insDate" required value="${todayStr()}" max="${todayStr()}"></div>
+        <div class="field"><label>점검 주기(일) *</label><input class="control" type="number" name="cycle" id="insCycle" min="1" required value="${first.inspect_cycle_days||180}"></div>
+        <div class="field"><label>점검 결과(상태) *</label>
+          <select class="control" name="result" id="insResult" required>
+            <option value="정상">정상</option><option value="배터리교체">배터리교체</option><option value="패드교체">패드교체</option><option value="수리필요">수리필요</option><option value="사용불가">사용불가</option>
+          </select></div>
+        <div class="field"><label>점검자</label><input class="control" name="inspector" placeholder="이름 또는 부서"></div>
+      </div>
+
+      <!-- 실시간 자동 계산 미리보기 -->
+      <div class="next-preview" id="insPreview"></div>
+
+      <div class="field"><label>메모</label><textarea class="control" name="memo" rows="2" placeholder="점검 중 발견한 사항"></textarea></div>
+      <div class="field"><label>사진 (선택, 5MB 이하)</label><input class="control" type="file" name="photo" id="insPhoto" accept="image/*"></div>
+      <div id="insThumb"></div>
+      <button class="btn solid block" type="submit" style="margin-top:6px">점검 저장 · 다음 점검일 확정</button>
+    </form>`);
+  const form=$("#inspectForm");
+
+  // 미리보기 갱신: 점검일 + 주기 → 다음 점검일, 결과 → 예상 상태
+  function updatePreview(){
+    const date=$("#insDate").value||todayStr();
+    const cycle=parseInt($("#insCycle").value,10)||180;
+    const result=$("#insResult").value;
+    const next=addDays(date,cycle);
+    const dleft=daysBetween(todayStr(),next);
+    const rc=resultToCode(result);
+    const statusText=rc?(STATUS_DEF[rc]?STATUS_DEF[rc].label:result):"정상";
+    const statusCls=rc?(STATUS_DEF[rc]?STATUS_DEF[rc].level:"danger"):"ok";
+    $("#insPreview").innerHTML=`
+      <div class="np-head">🔄 자동 계산 미리보기</div>
+      <div class="np-grid">
+        <div class="np-cell"><small>이번 점검일</small><b>${date}</b></div>
+        <div class="np-cell np-arrow">＋ ${cycle}일</div>
+        <div class="np-cell highlight"><small>다음 점검 예정일</small><b>${next}</b><span class="np-dday">D-${dleft}</span></div>
+      </div>
+      <div class="np-foot">점검 후 예상 상태: <span class="badge ${statusCls}">${esc(statusText)}</span>
+        ${rc?`<span class="muted" style="font-size:11px">— 수리·사용불가는 다른 조건보다 우선 표시됩니다</span>`:""}</div>`;
+  }
+  // 기기 변경 시 그 기기의 기존 점검주기를 채워줌
+  $("#insDevice").addEventListener("change",()=>{
+    const d=Store.getDevice($("#insDevice").value);
+    if(d)$("#insCycle").value=d.inspect_cycle_days||180;
+    updatePreview();
+  });
+  ["insDate","insCycle","insResult"].forEach(id=>{
+    $("#"+id).addEventListener("input",updatePreview);
+    $("#"+id).addEventListener("change",updatePreview);
+  });
+  // 사진 썸네일 미리보기
+  $("#insPhoto").addEventListener("change",async()=>{
+    const f=$("#insPhoto").files[0];
+    if(!f){$("#insThumb").innerHTML="";return;}
+    try{const url=await fileToDataUrl(f);$("#insThumb").innerHTML=`<img src="${url}" style="width:100%;max-height:160px;object-fit:contain;border:1px solid var(--line);border-radius:10px;margin:4px 0 8px">`;}
+    catch(err){$("#insThumb").innerHTML="";toast(err.message||"사진 오류");$("#insPhoto").value="";}
+  });
+  updatePreview();
+
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();const f=new FormData(form);
+    const photoFile=f.get("photo");
+    let photo=null;
+    if(photoFile&&photoFile.size){try{photo=await fileToDataUrl(photoFile);}catch(err){toast(err.message||"사진 업로드 실패");return;}}
+    const deviceId=f.get("deviceId");
+    const cycle=parseInt(f.get("cycle"),10)||180;
+    // 점검주기와 점검 기록을 한 번에 저장해 다음 점검일 기준이 어긋나지 않게 한다.
+    Store.recordInspection(deviceId,cycle,{date:f.get("date"),result:f.get("result"),inspector:f.get("inspector"),memo:f.get("memo"),photo});
+    const d=Store.getDevice(deviceId);
+    const next=Store.nextInspectionDate(d);
+    closeModal();
+    toast(`점검 저장 완료 · 다음 점검일 ${next}`);
+    go(activeMode==="admin"?activeView:"inspection");
+  });
+}
+function fileToDataUrl(file){
+  return new Promise((res,rej)=>{
+    // 업로드 제한: 이미지 형식 + 5MB 이하 (보안/데이터 품질)
+    if(file.size>5*1024*1024){rej(new Error("사진은 5MB 이하만 업로드할 수 있습니다."));return;}
+    if(!/^image\//.test(file.type||"")){rej(new Error("이미지 파일만 업로드할 수 있습니다."));return;}
+    const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);
+  });
+}
+
+/* ============================================================
+   VIEW: 조치 작업 (관리자용) — 위험 상태 → 후속 작업 관리 (P1 4-1)
+   ============================================================ */
+const TASK_STATUSES=["미처리","진행 중","완료","재확인 필요"];
+let _taskFilter="open"; // open | all | 미처리 | 진행 중 | 완료 | 재확인 필요
+Views.tasks=function(host){
+  Store.ensureTasksForRisk();
+  let tasks=Store.listTasks();
+  const counts={open:tasks.filter(t=>t.status!=="완료").length,all:tasks.length};
+  TASK_STATUSES.forEach(s=>counts[s]=tasks.filter(t=>t.status===s).length);
+  if(_taskFilter==="open")tasks=tasks.filter(t=>t.status!=="완료");
+  else if(_taskFilter!=="all")tasks=tasks.filter(t=>t.status===_taskFilter);
+  const today=todayStr();
+  const chip=(key,label)=>`<button class="filter-chip ${_taskFilter===key?"on":""}" data-tf="${key}">${label} ${counts[key]||0}</button>`;
+  host.innerHTML=`
+    <div class="page-head"><div><h1>조치 작업</h1><p>위험 상태가 감지된 기기는 조치 작업으로 자동 생성됩니다. 담당자·기한·상태를 관리하세요.</p></div><div class="head-actions"><button class="btn" id="taskExport">⬇ 작업 CSV</button><button class="btn solid" id="taskAdd">+ 작업 생성</button></div></div>
+    <div class="filter-row">
+      ${chip("open","미완료")}${chip("미처리","미처리")}${chip("진행 중","진행 중")}${chip("재확인 필요","재확인")}${chip("완료","완료")}${chip("all","전체")}
+    </div>
+    <div class="card pad">
+      ${tasks.length?`<div class="table-wrap"><table class="table"><thead><tr>
+        <th>기기</th><th>작업</th><th>담당자</th><th>기한</th><th>상태</th><th></th></tr></thead><tbody>
+        ${tasks.map(t=>{const d=t.deviceId?Store.getDevice(t.deviceId):null;
+          const overdue=t.due&&t.status!=="완료"&&daysBetween(today,t.due)<0;
+          const sBadge={"미처리":"danger","진행 중":"warn","완료":"ok","재확인 필요":"warn"}[t.status]||"neutral";
+          return `<tr>
+            <td><strong>${esc(d?d.name:"(삭제된 기기)")}</strong><br><span class="mono muted" style="font-size:11px">${esc(t.deviceId||"-")}</span></td>
+            <td>${esc(t.title)}<br><span class="muted" style="font-size:11px">${esc(t.reason||"")}</span></td>
+            <td>${esc(t.assignee)||'<span class="muted">미지정</span>'}</td>
+            <td>${t.due?`${t.due}${overdue?' <span class="badge danger" style="font-size:10px;padding:2px 6px">기한초과</span>':""}`:'<span class="muted">미지정</span>'}</td>
+            <td><span class="badge ${sBadge}">${esc(t.status)}</span></td>
+            <td><button class="btn sm" data-task="${t.id}">관리</button></td>
+          </tr>`;}).join("")}
+      </tbody></table></div>`
+        :`<div class="empty"><div class="ic">🧰</div><b>조치 작업이 없습니다</b><p>위험 상태 기기가 생기면 자동으로 작업이 만들어집니다.</p></div>`}
+    </div>`;
+  host.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{_taskFilter=b.dataset.tf;go("tasks");}));
+  host.querySelectorAll("[data-task]").forEach(b=>b.addEventListener("click",()=>openTaskModal(b.dataset.task)));
+  $("#taskAdd").addEventListener("click",openNewTaskModal);
+  $("#taskExport").addEventListener("click",exportTasksCsv);
+};
+function openNewTaskModal(){
+  if(!adminUnlocked){go("tasks");return;}const devices=Store.listDevices();if(!devices.length){toast("먼저 기기를 등록하세요.");return;}
+  openModal(`<div class="modal-head"><h2>🧰 조치 작업 생성</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <form id="newTaskForm"><div class="field"><label>대상 기기 *</label><select class="control" name="deviceId" required>${devices.map(d=>`<option value="${d.id}">${esc(d.name)} (${esc(d.id)})</option>`).join("")}</select></div>
+    <div class="field"><label>조치 항목 *</label><input class="control" name="title" required placeholder="예: 패드 유효기간 확인"></div>
+    <div class="field"><label>조치 사유·상세</label><textarea class="control" name="reason" rows="3" placeholder="확인해야 할 사항과 준비물"></textarea></div>
+    <div class="form-grid"><div class="field"><label>담당자</label><input class="control" name="assignee"></div><div class="field"><label>조치 기한</label><input class="control" type="date" name="due" min="${todayStr()}"></div></div>
+    <button class="btn solid block" type="submit">작업 생성</button></form>`);
+  $("#newTaskForm").addEventListener("submit",e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));Store.addTask({...f,status:"미처리",type:"manual"});closeModal();toast("조치 작업을 생성했습니다.");go("tasks");});
+}
+window.openNewTaskModal=openNewTaskModal;
+function openTaskModal(id){
+  const t=Store.getTask(id);if(!t)return;
+  const d=t.deviceId?Store.getDevice(t.deviceId):null;
+  openModal(`
+    <div class="modal-head"><h2>🧰 조치 작업 관리</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <div style="margin-bottom:12px"><strong style="font-size:15px">${esc(d?d.name:"(삭제된 기기)")}</strong>
+      <div class="muted" style="font-size:12px;margin-top:3px">${esc(t.title)} · ${esc(t.reason||"")}</div></div>
+    <form id="taskForm">
+      <div class="form-grid">
+        <div class="field"><label>담당자</label><input class="control" name="assignee" value="${esc(t.assignee)}" placeholder="이름/부서"></div>
+        <div class="field"><label>조치 기한</label><input class="control" type="date" name="due" value="${t.due||""}"></div>
+        <div class="field wide"><label>상태</label>
+          <select class="control" name="status">${TASK_STATUSES.map(s=>`<option ${s===t.status?"selected":""}>${s}</option>`).join("")}</select></div>
+        <div class="field wide"><label>작업 내용 / 조치 사유</label><textarea class="control" name="work" rows="3" placeholder="수행한 작업, 교체 부품, 결과">${esc(t.work||"")}</textarea></div>
+        <div class="field wide"><label>완료 증빙 사진 (선택, 5MB 이하)</label><input class="control" type="file" name="photo" accept="image/*"></div>
+      </div>
+      ${t.photo?`<img src="${t.photo}" style="width:100%;max-height:180px;object-fit:contain;border-radius:10px;margin-bottom:10px">`:""}
+      <button class="btn solid block" type="submit">저장</button>
+    </form>
+    <div class="gi-lbl" style="margin-top:16px">변경 이력</div>
+    <div class="timeline" style="margin-top:6px">${(t.history||[]).map(h=>`<div class="tl-item"><time>${fmtTs(h.ts)}</time><h5>${esc(h.action)}</h5>${h.detail?`<p>${esc(h.detail)}</p>`:""}</div>`).join("")||'<p class="muted" style="font-size:11px">이력 없음</p>'}</div>`);
+  const form=$("#taskForm");
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();const f=new FormData(form);
+    const patch={assignee:f.get("assignee"),due:f.get("due"),status:f.get("status"),work:f.get("work")};
+    const photoFile=f.get("photo");
+    if(photoFile&&photoFile.size){
+      try{patch.photo=await fileToDataUrl(photoFile);}catch(err){toast(err.message||"사진 업로드 실패");return;}
+    }
+    Store.updateTask(id,patch,"상태/내용 변경: "+patch.status);
+    closeModal();toast("조치 작업을 저장했습니다.");go("tasks");
+  });
+}
+window.openTaskModal=openTaskModal;
+
+/* ============================================================
+   VIEW: 점검 보고서 (관리자용) — 월별/필터/집계/CSV (P1 4-2)
+   ============================================================ */
+let _reportMonth=todayStr().slice(0,7);
+Views.report=function(host){
+  const devices=Store.listDevices();
+  const ym=_reportMonth;
+  // 월별 집계 (실제 데이터 기반)
+  const inspectedThisMonth=devices.filter(d=>(d.inspections||[]).some(i=>String(i.date||"").slice(0,7)===ym));
+  const notInspected=devices.filter(d=>!(d.inspections||[]).some(i=>String(i.date||"").slice(0,7)===ym));
+  const overdue=devices.filter(d=>daysBetween(todayStr(),Store.nextInspectionDate(d))<0);
+  const consumableDue=devices.filter(d=>{const st=deviceStatus(d);return st.code==="battery_due"||st.code==="pad_due";});
+  const needAction=devices.filter(d=>deviceStatus(d).level!=="ok");
+  const tasks=Store.listTasks();
+  const tasksDone=tasks.filter(t=>t.status==="완료").length;
+  const tasksOpen=tasks.filter(t=>t.status!=="완료").length;
+  const isDemo=hasSeedData();
+  host.innerHTML=`
+    <div class="page-head"><div><h1>점검 보고서</h1><p>월별 점검 현황을 집계합니다. 모든 수치는 실제 저장된 데이터로 계산됩니다.</p></div>
+      <div class="head-actions">
+        <input class="control" type="month" id="reportMonth" value="${ym}" style="width:auto">
+        <button class="btn" id="exportCsv">선택 월 점검 CSV</button>
+      </div></div>
+    ${isDemo?`<div class="card pad" style="margin-bottom:14px;border-color:var(--warn-line);background:var(--warn-bg)">
+      <b style="font-size:13px">⚠️ 시연용 데이터 포함</b>
+      <p class="muted" style="font-size:12px;margin-top:3px">현재 예시(시드) 데이터가 포함되어 있어, 아래 수치는 <b>시연 데이터 기준</b>입니다. 실제 설치정보로 교체하면 실데이터로 집계됩니다.</p></div>`:""}
+    <div class="grid kpi-grid" style="margin-bottom:16px">
+      <div class="card kpi"><div class="k-top"><span>대상 기기</span></div><div class="k-val">${devices.length}<small> 대</small></div><div class="k-foot">기준월 ${ym}</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 완료</span></div><div class="k-val" style="color:var(--ok)">${inspectedThisMonth.length}<small> 대</small></div><div class="k-foot">이번 달 1회+</div></div>
+      <div class="card kpi"><div class="k-top"><span>미점검</span></div><div class="k-val" style="color:var(--warn)">${notInspected.length}<small> 대</small></div><div class="k-foot">이번 달 기록 없음</div></div>
+      <div class="card kpi"><div class="k-top"><span>점검 기한 초과</span></div><div class="k-val" style="color:var(--danger)">${overdue.length}<small> 대</small></div><div class="k-foot">기한 지남</div></div>
+      <div class="card kpi"><div class="k-top"><span>조치 필요</span></div><div class="k-val" style="color:var(--danger)">${needAction.length}<small> 대</small></div><div class="k-foot">위험·임박</div></div>
+      <div class="card kpi"><div class="k-top"><span>조치 완료/미완료</span></div><div class="k-val">${tasksDone}<small>/${tasksOpen+tasksDone} 건</small></div><div class="k-foot">작업 기준</div></div>
+    </div>
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:15px">미점검 기기 (${ym})</h2></div>
+      ${notInspected.length?`<div class="table-wrap"><table class="table"><thead><tr><th>기기</th><th>위치</th><th>최근 점검</th><th>상태</th></tr></thead><tbody>
+        ${notInspected.map(d=>{const st=deviceStatus(d);const last=Store.lastInspection(d);return `<tr>
+          <td><strong>${esc(d.name)}</strong></td><td>${esc(d.address)}</td>
+          <td>${last?last.date:'<span class="muted">기록 없음</span>'}</td><td>${statusBadge(st)}</td></tr>`;}).join("")}
+      </tbody></table></div>`:`<div class="empty"><div class="ic">✓</div><b>이번 달 모든 기기 점검 완료</b></div>`}
+    </div>
+    <div class="card pad">
+      <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:15px">배터리·패드 교체 예정</h2></div>
+      ${consumableDue.length?`<div class="table-wrap"><table class="table"><thead><tr><th>기기</th><th>배터리</th><th>패드</th><th>상태</th></tr></thead><tbody>
+        ${consumableDue.map(d=>{const st=deviceStatus(d);return `<tr>
+          <td><strong>${esc(d.name)}</strong></td><td>${expiryCell(d.battery_expiry)}</td><td>${expiryCell(d.pad_expiry)}</td><td>${statusBadge(st)}</td></tr>`;}).join("")}
+      </tbody></table></div>`:`<div class="empty"><div class="ic">✓</div><b>교체 예정 소모품 없음</b></div>`}
+    </div>`;
+  $("#reportMonth").addEventListener("change",e=>{_reportMonth=e.target.value||todayStr().slice(0,7);go("report");});
+  $("#exportCsv").addEventListener("click",()=>exportInspectionCsv(ym));
+};
+function csvCell(value){let v=String(value==null?"":value);if(/^[=+\-@\t\r]/.test(v))v="'"+v;return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function downloadCsv(rows,filename){const csv=rows.map(r=>r.map(csvCell).join(",")).join("\r\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function exportUsageCsv(){
+  if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}const rows=[["사용기록ID","사용일시","기기ID","기기명","주소","위도","경도","119통화상태","관리자통보","복구상태","복구완료일","복구담당자","메모"]];Store.listEvents().forEach(e=>rows.push([e.id,e.ts,e.deviceId||"",e.deviceName,e.address,e.lat==null?"":e.lat,e.lng==null?"":e.lng,e.call119,e.managerNotify,e.recovery,e.recoveredAt||"",e.recoveredBy||"",e.note||e.recoveryMemo||""]));downloadCsv(rows,`AED사용복구이력_${todayStr()}.csv`);toast(`사용·복구 이력 ${rows.length-1}건을 내보냈습니다.`);
+}
+function exportTasksCsv(){
+  if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}const rows=[["작업ID","기기ID","유형","작업","사유","담당자","기한","상태","작업내용","생성일","수정일"]];Store.listTasks().forEach(t=>rows.push([t.id,t.deviceId||"",t.type,t.title,t.reason,t.assignee,t.due,t.status,t.work,t.created,t.updated]));downloadCsv(rows,`AED조치작업_${todayStr()}.csv`);toast(`조치 작업 ${rows.length-1}건을 내보냈습니다.`);
+}
+function exportInspectionCsv(ym){
+  if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}
+  const rows=[["점검월","점검일","기기ID","설치장소","주소","모델","점검결과","점검자","메모"]];
+  Store.listDevices().forEach(d=>(d.inspections||[]).filter(i=>String(i.date||"").slice(0,7)===ym).sort((a,b)=>String(b.date).localeCompare(String(a.date))).forEach(i=>rows.push([ym,i.date,d.id,d.name,d.address,productName(d.model),i.result,i.inspector||"",i.memo||""])));
+  downloadCsv(rows,`AED점검기록_${ym}.csv`);toast(`${ym} 실제 점검 기록 ${rows.length-1}건을 내보냈습니다.`);
+}
+function exportAllDevicesCsv(){
+  if(!adminUnlocked||activeMode!=="admin"){toast("관리자 모드에서만 전체 현황을 내보낼 수 있습니다.");return;}
+  const rows=[["기기ID","설치장소","주소","건물","층","상세위치","모델","상태","상태근거","배터리만료","패드만료","최근점검일","다음점검일","담당자","연락처","출처","원제조사","원모델","위도","경도"]];
+  devicesByUrgency().forEach(d=>{const st=deviceStatus(d),last=Store.lastInspection(d);rows.push([d.id,d.name,d.address,d.building,d.floor,d.spot,productName(d.model),st.label,st.reasons.join(" / "),d.battery_expiry,d.pad_expiry,last?last.date:"",Store.nextInspectionDate(d),d.manager,d.phone,d.source,d.source_maker,d.source_model,d.lat,d.lng]);});
+  downloadCsv(rows,`AED전체현황_${todayStr()}.csv`);toast(`전체 기기 ${rows.length-1}대를 내보냈습니다.`);
+}
+/* 시드(예시) 데이터 포함 여부 — 보고서 '시연 데이터' 표기용 */
+function hasSeedData(){return Store.listDevices().some(d=>SEED.some(s=>s.id===d.id));}
+
+/* ============================================================
+   VIEW: 데이터 연동 (관리자) — 공공 AED는 Supabase DB에서만 조회
+   SafeMap → DB 적재는 서버 스크립트(scripts/sync_safemap_to_supabase.py)로만 하고,
+   브라우저(localStorage)에는 공공 AED를 저장하지 않는다.
+   ============================================================ */
+Views.datacenter=function(host){
+  host.innerHTML=`
+    <div class="page-head"><div><h1>공공데이터 연동 (SafeMap → DB)</h1>
+      <p>전국 공공 AED는 데이터베이스에서만 불러옵니다. 브라우저에는 저장하지 않습니다.</p></div>
+      <div class="head-actions"><button class="btn" id="dbRefresh">↻ 새로고침</button></div></div>
+
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:15px">연동 상태</h2></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+        <span class="badge info">출처: SafeMap 생활안전지도</span>
+        <span class="badge neutral">저장소: Supabase PostgreSQL</span>
+        <span class="badge warn" id="dbBadge">DB 연결 확인 중</span>
+      </div>
+      <div class="grid kpi-grid" id="dbKpis"></div>
+    </div>
+
+    <div class="card pad" style="margin-bottom:16px">
+      <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:15px">시도별 공공 AED</h2></div>
+      <div id="dbSidoTable"><p class="muted" style="font-size:12px">불러오는 중…</p></div>
+    </div>
+
+    <div class="card pad">
+      <div class="card-head" style="margin-bottom:10px"><h2 style="font-size:15px">데이터 갱신 방법</h2></div>
+      <ol class="prod-steps">
+        <li>서버 PC에서 <code class="mono">python scripts\\sync_safemap_to_supabase.py --page-size 500</code>을 실행합니다. 같은 기기는 갱신되고 중복은 생기지 않습니다.</li>
+        <li>지도에 바로 반영하려면 서버의 <code class="mono">.cache/aed_points.json</code>을 지우고 서버를 다시 시작합니다.</li>
+        <li>시민 지도는 이 DB를 조회합니다. 브라우저에는 관리 등록 기기(직접 입력·CSV)만 저장됩니다.</li>
+      </ol>
+      <p class="muted" style="font-size:11px;margin-top:10px">※ 공공데이터 이용조건·출처를 확인해 준수하세요. DB·SafeMap 키는 서버의 .env에만 있습니다.</p>
+    </div>`;
+
+  const badge=$("#dbBadge"),kpis=$("#dbKpis"),table=$("#dbSidoTable");
+  async function load(){
+    badge.className="badge warn";badge.textContent="DB 연결 확인 중";
+    try{
+      if(!(await checkDbConfigured()))throw new Error("서버 .env에 Supabase 설정이 없습니다.");
+      const p=await loadDbPoints();
+      const sido=(p.sido||[]).filter(s=>s.name!=="미상"),unknown=(p.sido||[]).filter(s=>s.name==="미상").reduce((n,s)=>n+s.count,0);
+      const total=Number(p.count)||0,generated=String(p.generatedAt||"").replace("T"," ").slice(0,16)||"-";
+      badge.className="badge ok";badge.textContent="DB 연결됨";
+      kpis.innerHTML=`
+        <div class="card kpi"><div class="k-top"><span>DB 공공 AED</span></div><div class="k-val">${total.toLocaleString("ko-KR")}<small> 곳</small></div><div class="k-foot">활성 레코드 · 좌표 검증 완료</div></div>
+        <div class="card kpi"><div class="k-top"><span>시도</span></div><div class="k-val">${sido.length}<small> 곳</small></div><div class="k-foot">시도 값 없음 ${unknown.toLocaleString("ko-KR")}건</div></div>
+        <div class="card kpi"><div class="k-top"><span>지도 데이터 기준</span></div><div class="k-val" style="font-size:17px">${esc(generated)}</div><div class="k-foot">서버 캐시 생성 시각 (최대 6시간 유지)</div></div>`;
+      table.innerHTML=`<div class="table-wrap"><table class="table"><thead><tr><th>시도</th><th style="text-align:right">AED</th><th style="text-align:right">비율</th></tr></thead><tbody>${sido.map(s=>`<tr><td>${esc(s.name)}</td><td style="text-align:right">${Number(s.count).toLocaleString("ko-KR")}곳</td><td style="text-align:right">${total?(s.count/total*100).toFixed(1):"0.0"}%</td></tr>`).join("")}</tbody></table></div>`;
+    }catch(e){
+      badge.className="badge danger";badge.textContent="DB 연결 확인 필요";kpis.innerHTML="";
+      table.innerHTML=`<p class="muted" style="font-size:12px">${esc(e.message||"조회 실패")}</p>`;
+    }
+  }
+  $("#dbRefresh").addEventListener("click",()=>{_dbPoints=null;_dbPointsPromise=null;_dbConfigured=null;load();});
+  load();
+};
+
+/* ============================================================
+   VIEW: 운영 설정 · 백업 (관리자 전용)
+   ============================================================ */
+Views.settings=function(host){
+  if(!adminUnlocked){go("settings");return;}const s=Store.getSettings();
+  host.innerHTML=`<div class="page-head"><div><h1>운영 설정 · 백업</h1><p>기관 표시와 사전알림 기준, 월 점검 목표를 관리합니다.</p></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      <section class="card pad"><h2 style="font-size:16px;margin-bottom:14px">운영 설정</h2><form id="settingsForm"><div class="field"><label>기관명</label><input class="control" name="org" maxlength="100" required value="${esc(s.org)}"></div><div class="form-grid"><div class="field"><label>만료 사전알림일</label><input class="control" type="number" name="alertDays" min="1" max="365" required value="${s.alertDays}"></div><div class="field"><label>월 점검목표 (%)</label><input class="control" type="number" name="monthlyTarget" min="0" max="100" required value="${s.monthlyTarget}"></div></div><p class="muted" style="font-size:11px;margin-bottom:12px">사전알림일은 상태 판정·조치 안내·유효기간 표시에 즉시 적용됩니다.</p><button class="btn solid block" type="submit">설정 저장</button></form></section>
+      <section class="card pad"><h2 style="font-size:16px;margin-bottom:14px">백업 · 복원</h2><div class="notice-box" style="margin-bottom:12px">JSON 백업에는 기기, 점검 사진, 사용/복구 기록, 작업, 설정이 포함될 수 있습니다. 안전한 장소에 보관하세요.</div><button class="btn block" id="backupExport">⬇ JSON 백업 다운로드</button><input type="file" id="backupFile" accept="application/json,.json" style="display:none"><button class="btn block" id="backupImport" style="margin-top:8px">⬆ JSON 백업 복원</button><button class="btn block" id="settingsReset" style="margin-top:8px;color:var(--danger)">모든 데이터 비우기</button></section>
+    </div>
+    <section class="card pad" style="margin-top:16px"><h2 style="font-size:15px;margin-bottom:10px">현재 구현 범위</h2><ul class="gi-prep" style="line-height:1.8"><li>저장소: <b>브라우저 localStorage</b> — 브라우저 데이터 삭제·다른 기기에서는 유지되지 않음</li><li>관리자 인증: <b>프런트 시연용</b> — 서버 인증·권한 검증 미연동</li><li>백업: <b>수동 JSON 파일</b> — 서버 자동 백업·복구 미연동</li><li>사용 알림: <b>로컬 기록만 저장</b> — 문자·푸시 등 실제 관리자 알림 미연동</li></ul></section>`;
+  $("#settingsForm").addEventListener("submit",e=>{e.preventDefault();if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}const f=new FormData(e.currentTarget);Store.updateSettings({org:f.get("org"),alertDays:+f.get("alertDays"),monthlyTarget:+f.get("monthlyTarget")});toast("운영 설정을 저장했습니다.");go("settings");});
+  $("#backupExport").addEventListener("click",()=>{if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}const json=JSON.stringify(Store.exportSnapshot(),null,2),blob=new Blob([json],{type:"application/json;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=`AEDCare_백업_${todayStr()}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast("JSON 백업을 다운로드했습니다.");});
+  $("#backupImport").addEventListener("click",()=>{if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}const input=$("#backupFile");input.value="";input.onchange=async()=>{const file=input.files&&input.files[0];if(!file)return;try{const text=await file.text();if(!confirm("현재 로컬 데이터를 백업 파일 내용으로 교체할까요? 이 작업은 되돌리려면 현재 백업이 필요합니다."))return;const result=Store.importSnapshot(text);toast(`복원 완료 · 기기 ${result.devices}대 · 이벤트 ${result.events}건`);go("settings");}catch(err){toast("복원 실패: "+(err.message||err));}};input.click();});
+  $("#settingsReset").addEventListener("click",()=>{if(!adminUnlocked){toast("관리자 인증이 필요합니다.");return;}if(confirm("모든 로컬 데이터를 지우고 빈 상태로 초기화할까요?")){Store.reset();toast("모든 데이터를 지우고 빈 상태로 초기화했습니다.");go("settings");}});
+};
+
+/* 데이터 저장 안내 (7장) */
+function openInfoModal(){
+  openModal(`
+    <div class="modal-head"><h2>ⓘ 데이터 저장 안내</h2><button class="btn sm ghost" onclick="closeModal()">✕</button></div>
+    <ul class="gi-prep" style="font-size:13px;line-height:1.7">
+      <li>현재 버전은 <b>브라우저 로컬 저장(localStorage)</b>에 데이터를 보관하는 <b>시연용</b>입니다.</li>
+      <li>브라우저 데이터 삭제, 시크릿 창, 다른 기기에서는 <b>데이터가 유지되지 않습니다.</b></li>
+      <li>서버 데이터베이스·자동 백업·실제 문자/푸시 알림은 <b>미연동</b>입니다.</li>
+      <li>관리자 인증은 현재 <b>프런트 데모 수준</b>이며 서버 인증·권한 검증을 대신하지 않습니다.</li>
+    </ul><div style="display:flex;gap:8px;margin-top:14px"><button class="btn block" onclick="closeModal()">닫기</button>${adminUnlocked?`<button class="btn block" id="openSettings">관리자 설정·백업</button>`:""}</div>`);
+  const settings=$("#openSettings");if(settings)settings.addEventListener("click",()=>{closeModal();go("settings");});
+}
+window.openInfoModal=openInfoModal;
+
+/* ---------- boot ---------- */
+const _ic=$("#infoChip");if(_ic)_ic.addEventListener("click",openInfoModal);
+const _topExport=$("#topCsvExport");if(_topExport)_topExport.addEventListener("click",exportAllDevicesCsv);
+setMode("citizen","home");
+</script>
+</body>
+</html>
